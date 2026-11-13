@@ -94,6 +94,47 @@ body.site-body {
   background: rgba(196, 40, 48, 0.16);
 }
 
+.site-nav__tools {
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+}
+
+.site-nav__icon-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.1rem;
+  height: 2.1rem;
+  padding: 0;
+  border: 2px solid var(--site-line);
+  background: rgba(12, 10, 9, 0.55);
+  color: var(--site-muted);
+  cursor: pointer;
+}
+
+.site-nav__icon-btn svg {
+  width: 1.05rem;
+  height: 1.05rem;
+  display: block;
+}
+
+.site-nav__icon-btn:hover,
+.site-nav__icon-btn:focus-visible {
+  color: var(--site-ink);
+  background: rgba(196, 40, 48, 0.16);
+  outline: none;
+}
+
+.site-nav__icon-btn.is-muted {
+  color: var(--site-muted);
+  opacity: 0.7;
+}
+
+.sfx-icon.hidden {
+  display: none;
+}
+
 .site-auth {
   display: flex;
   align-items: center;

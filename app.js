@@ -3,7 +3,44 @@
   const PAGE_FILE_FORMAT = "crianza-pokemon-page";
   const LEGACY_STORAGE_KEY = "crianza-cuaderno-v1";
   const LEGACY_DRAW_KEY = "crianza-dibujo-v1";
+  const DEX_KEY = "crianza-dex-v3"; /* v3: eliges Bulbasaur / Charmander / Squirtle */
+  const SFX_MUTE_KEY = "crianza-sfx-muted-v1";
   const POKE_LIMIT = 1025;
+  const DEX_STARTERS = [1, 4, 7]; /* Bulbasaur, Charmander, Squirtle */
+  const DEX_LEGENDARIES = [
+    /* Kanto–Paldea legendarios / míticos principales */
+    144, 145, 146, 150, 151, 243, 244, 245, 249, 250, 251, 377, 378, 379, 380,
+    381, 382, 383, 384, 385, 386, 480, 481, 482, 483, 484, 485, 486, 487, 488,
+    489, 490, 491, 492, 493, 494, 638, 639, 640, 641, 642, 643, 644, 645, 646,
+    647, 648, 649, 716, 717, 718, 719, 720, 721, 785, 786, 787, 788, 789, 790,
+    791, 792, 800, 801, 802, 807, 808, 809, 888, 889, 890, 891, 892, 893, 894,
+    895, 896, 897, 898, 905, 1001, 1002, 1003, 1004, 1007, 1008, 1009, 1010,
+    1014, 1015, 1016, 1017, 1020, 1021, 1022, 1023, 1024, 1025,
+  ];
+  const DEX_EVOLUTIONS = {
+    1: 2, 2: 3, 4: 5, 5: 6, 7: 8, 8: 9, 10: 11, 11: 12, 13: 14, 14: 15, 16: 17,
+    17: 18, 19: 20, 21: 22, 23: 24, 25: 26, 27: 28, 29: 30, 30: 31, 32: 33, 33: 34,
+    35: 36, 37: 38, 39: 40, 41: 42, 43: 44, 44: 45, 46: 47, 48: 49, 50: 51, 52: 53,
+    54: 55, 56: 57, 58: 59, 60: 61, 61: 62, 63: 64, 64: 65, 66: 67, 67: 68, 69: 70,
+    70: 71, 72: 73, 74: 75, 75: 76, 77: 78, 79: 80, 81: 82, 84: 85, 86: 87, 88: 89,
+    90: 91, 92: 93, 93: 94, 96: 97, 98: 99, 100: 101, 102: 103, 104: 105, 109: 110,
+    111: 112, 116: 117, 118: 119, 120: 121, 129: 130, 133: 134, 138: 139, 140: 141,
+    147: 148, 148: 149, 152: 153, 153: 154, 155: 156, 156: 157, 158: 159, 159: 160,
+    161: 162, 163: 164, 165: 166, 167: 168, 177: 178, 179: 180, 180: 181, 183: 184,
+    187: 188, 188: 189, 191: 192, 194: 195, 198: 430, 200: 429, 204: 205, 209: 210,
+    215: 461, 216: 217, 220: 221, 223: 224, 228: 229, 231: 232, 246: 247, 247: 248,
+    252: 253, 253: 254, 255: 256, 256: 257, 258: 259, 259: 260, 261: 262, 263: 264,
+    265: 266, 266: 267, 270: 271, 271: 272, 273: 274, 274: 275, 276: 277, 278: 279,
+    280: 281, 281: 282, 283: 284, 285: 286, 287: 288, 288: 289, 293: 294, 294: 295,
+    296: 297, 300: 301, 304: 305, 305: 306, 307: 308, 309: 310, 316: 317, 318: 319,
+    320: 321, 322: 323, 325: 326, 328: 329, 329: 330, 331: 332, 333: 334, 341: 342,
+    343: 344, 345: 346, 347: 348, 353: 354, 355: 356, 361: 362, 363: 364, 364: 365,
+    371: 372, 372: 373, 374: 375, 375: 376, 387: 388, 388: 389, 390: 391, 391: 392,
+    393: 394, 394: 395, 495: 496, 496: 497, 498: 499, 499: 500, 501: 502, 502: 503,
+    650: 651, 651: 652, 653: 654, 654: 655, 656: 657, 657: 658, 722: 723, 723: 724,
+    725: 726, 726: 727, 728: 729, 729: 730, 810: 811, 811: 812, 813: 814, 814: 815,
+    816: 817, 817: 818,
+  };
   const API = "https://pokeapi.co/api/v2";
   const GRID = 8;
   const CARD_W = 150;
@@ -79,6 +116,8 @@
     btnExportPage: document.getElementById("btn-export-page"),
     btnImportPage: document.getElementById("btn-import-page"),
     btnPublishCommunity: document.getElementById("btn-publish-community"),
+    btnUpdates: document.getElementById("btn-updates"),
+    btnCompanion: document.getElementById("btn-companion"),
     pageImportFile: document.getElementById("page-import-file"),
     footerLogo: document.getElementById("site-footer-logo"),
     pageTitle: document.getElementById("page-title"),
@@ -92,8 +131,10 @@
     toast: document.getElementById("toast"),
     toolHint: document.getElementById("tool-hint"),
     contextMenu: document.getElementById("context-menu"),
+    menuReady: document.getElementById("menu-ready"),
     menuUnite: document.getElementById("menu-unite"),
     menuDelete: document.getElementById("menu-delete"),
+    tagFilter: document.getElementById("tag-filter"),
     pairBanner: document.getElementById("pair-banner"),
     breedModal: document.getElementById("breed-modal"),
     breedSteps: document.getElementById("breed-steps"),
@@ -104,6 +145,25 @@
     breedMale: document.getElementById("breed-male"),
     breedFemale: document.getElementById("breed-female"),
     breedConfirm: document.getElementById("breed-confirm"),
+    updatesModal: document.getElementById("updates-modal"),
+    companionModal: document.getElementById("companion-modal"),
+    starterModal: document.getElementById("starter-modal"),
+    starterPicks: document.getElementById("starter-picks"),
+    companion: document.getElementById("companion"),
+    companionSprite: document.getElementById("companion-sprite"),
+    companionEvoBadge: document.getElementById("companion-evo-badge"),
+    companionGrid: document.getElementById("companion-grid"),
+    btnCompanionHide: document.getElementById("btn-companion-hide"),
+    btnDexEvolve: document.getElementById("btn-dex-evolve"),
+    dexProgress: document.getElementById("dex-progress"),
+    dexSearch: document.getElementById("dex-search"),
+    dexActive: document.getElementById("dex-active"),
+    dexToast: document.getElementById("dex-toast"),
+    dexToastSprite: document.getElementById("dex-toast-sprite"),
+    dexToastTitle: document.getElementById("dex-toast-title"),
+    dexToastText: document.getElementById("dex-toast-text"),
+    dexSpawn: document.getElementById("dex-spawn"),
+    dexSpawnSprite: document.getElementById("dex-spawn-sprite"),
   };
 
   const drawCtx = els.draw.getContext("2d");
@@ -126,6 +186,14 @@
   let drawingLoadToken = 0;
   let drawingReady = true;
   let menuUid = null;
+  let companionState = loadDexState();
+  let companionRaf = 0;
+  let dexEncounterTimer = 0;
+  let activeSpawn = null;
+  let spawnFleeTimer = 0;
+  let sfxMuted = localStorage.getItem(SFX_MUTE_KEY) === "1";
+  let audioCtx = null;
+  let tagFilter = "";
   let pairSourceUid = null;
   let pendingBreed = null;
   let babyGender = "female";
@@ -550,6 +618,7 @@
     }
 
     const page = createPage(source.name.trim().slice(0, 80) || "Página importada");
+    const uidMap = new Map();
     page.saved = source.saved.map((entry) => {
       if (
         !isRecord(entry) ||
@@ -593,6 +662,7 @@
             ? entry.createdAt
             : new Date().toISOString(),
       };
+      if (typeof entry.uid === "string") uidMap.set(entry.uid, imported.uid);
       if (typeof entry.parents === "string") imported.parents = entry.parents.slice(0, 200);
       if (isRecord(entry.heldPlan)) {
         imported.heldPlan = {
@@ -603,7 +673,21 @@
       if (Number.isFinite(entry.breedCost) && entry.breedCost >= 0) {
         imported.breedCost = Math.min(entry.breedCost, 1000000);
       }
+      if (entry.ready === true) imported.ready = true;
+      if (Array.isArray(entry.parentUids)) {
+        imported._parentUids = entry.parentUids
+          .filter((uid) => typeof uid === "string")
+          .slice(0, 2);
+      }
       return imported;
+    });
+    page.saved.forEach((imported) => {
+      if (!imported._parentUids) return;
+      const mapped = imported._parentUids
+        .map((uid) => uidMap.get(uid))
+        .filter(Boolean);
+      if (mapped.length === 2) imported.parentUids = mapped;
+      delete imported._parentUids;
     });
 
     page.pasted = source.pasted.map((shot) => {
@@ -786,6 +870,806 @@
 
   function spriteUrl(id) {
     return `https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/${id}.png`;
+  }
+
+  /* GIF animado B/N (ciclo de caminar en sitio). Gen 1–5 tienen; luego cae a estático. */
+  function companionWalkUrl(id) {
+    return `https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/versions/generation-v/black-white/animated/${id}.gif`;
+  }
+
+  function companionShowdownWalkUrl(name) {
+    const slug = String(name || "")
+      .toLowerCase()
+      .trim()
+      .replace(/[^a-z0-9-]/g, "");
+    if (!slug) return "";
+    /* Ani lateral Showdown: se ve más “de caminar” que el idle con salto. */
+    return `https://play.pokemonshowdown.com/sprites/gen5ani/${slug}.gif`;
+  }
+
+  function emptyDexState() {
+    return {
+      id: null,
+      hidden: true,
+      x: 80,
+      y: 80,
+      breeds: 0,
+      lastEncounterAt: 0,
+      starterChosen: false,
+      caught: {},
+    };
+  }
+
+  function loadDexState() {
+    try {
+      const raw = localStorage.getItem(DEX_KEY);
+      if (raw) {
+        const data = JSON.parse(raw);
+        const caught = data.caught && typeof data.caught === "object" ? data.caught : {};
+        const starterChosen =
+          data.starterChosen === true || Object.keys(caught).length > 0;
+        const id = Number(data.id) || Number(Object.keys(caught)[0]) || null;
+        return {
+          id: id ? Math.max(1, Math.min(POKE_LIMIT, id)) : null,
+          hidden: starterChosen ? data.hidden === true : true,
+          x: Number.isFinite(data.x) ? data.x : 80,
+          y: Number.isFinite(data.y) ? data.y : 80,
+          breeds: Number.isFinite(data.breeds) ? data.breeds : 0,
+          lastEncounterAt: Number(data.lastEncounterAt) || 0,
+          starterChosen,
+          caught,
+        };
+      }
+    } catch (_) {
+      /* ignore */
+    }
+    return emptyDexState();
+  }
+
+  function needsStarterChoice() {
+    return !companionState.starterChosen || !companionState.id;
+  }
+
+  function openStarterModal() {
+    if (!els.starterModal || !els.starterPicks) return;
+    const names = { 1: "bulbasaur", 4: "charmander", 7: "squirtle" };
+    els.starterPicks.innerHTML = DEX_STARTERS.map((id) => {
+      const name = pokeName(id) !== `#${padId(id)}` ? pokeName(id) : names[id];
+      return `
+        <button type="button" class="starter-pick" data-starter="${id}" role="option">
+          <img src="${escapeHtml(spriteUrl(id))}" alt="" width="72" height="72" />
+          <span>${escapeHtml(capitalize(name))}</span>
+        </button>`;
+    }).join("");
+    els.starterModal.classList.remove("hidden");
+    els.starterModal.setAttribute("aria-hidden", "false");
+  }
+
+  function closeStarterModal() {
+    els.starterModal?.classList.add("hidden");
+    els.starterModal?.setAttribute("aria-hidden", "true");
+  }
+
+  function chooseStarter(id) {
+    if (!DEX_STARTERS.includes(id)) return;
+    companionState.id = id;
+    companionState.hidden = false;
+    companionState.starterChosen = true;
+    companionState.caught = {
+      [id]: {
+        id,
+        at: new Date().toISOString(),
+        source: "starter",
+      },
+    };
+    persistCompanionState();
+    closeStarterModal();
+    renderCompanion();
+    playCatchSfx(false);
+    showDexCatchToast(id, "caught");
+    showToast(`Inicial: ${capitalize(pokeName(id))}`);
+  }
+
+  function allPokeIds() {
+    if (pokemonCatalog.length) {
+      return pokemonCatalog.map((p) => p.id);
+    }
+    return Array.from({ length: POKE_LIMIT }, (_, i) => i + 1);
+  }
+
+  function isLegendaryId(id) {
+    return DEX_LEGENDARIES.includes(id);
+  }
+
+  function persistCompanionState() {
+    try {
+      localStorage.setItem(DEX_KEY, JSON.stringify(companionState));
+    } catch (_) {
+      /* ignore */
+    }
+  }
+
+  function dexCaughtCount() {
+    return Object.keys(companionState.caught || {}).length;
+  }
+
+  function dexPoolSize() {
+    return pokemonCatalog.length || POKE_LIMIT;
+  }
+
+  function isCaught(id) {
+    return Boolean(companionState.caught?.[String(id)]);
+  }
+
+  function pokeName(id) {
+    return pokemonCatalog.find((p) => p.id === id)?.name || `#${padId(id)}`;
+  }
+
+  function setCompanionSprite(id) {
+    if (!els.companionSprite || !els.companion) return;
+    const poke = pokemonCatalog.find((p) => p.id === id);
+    const name = poke?.name || "";
+    /* Primero GIF B/N animado (pies/cuerpo en ciclo); sin rebote CSS. */
+    const sources = [
+      companionWalkUrl(id),
+      companionShowdownWalkUrl(name),
+      spriteUrl(id),
+    ].filter(Boolean);
+    let index = 0;
+
+    els.companionSprite.onload = null;
+    els.companionSprite.onerror = () => {
+      index += 1;
+      if (index < sources.length) {
+        els.companionSprite.src = sources[index];
+        return;
+      }
+      els.companionSprite.onerror = null;
+    };
+    els.companionSprite.src = sources[0];
+    els.companionSprite.alt = name || `Pokémon #${id}`;
+    els.companion.setAttribute(
+      "title",
+      `${capitalize(name || "Mascota")} · clic para abrir Pokédex`
+    );
+  }
+
+  function companionBounds() {
+    const size = 80;
+    const pad = 8;
+    const scroll = els.sheetScroll;
+    if (!scroll) {
+      return { minX: pad, maxX: 400, y: 200, size };
+    }
+    /* Solo el borde inferior visible del cuaderno (eje X). */
+    const minX = scroll.scrollLeft + pad;
+    const maxX = Math.max(
+      minX + size,
+      scroll.scrollLeft + scroll.clientWidth - size - pad
+    );
+    const y = scroll.scrollTop + scroll.clientHeight - size - 4;
+    return { minX, maxX, y, size };
+  }
+
+  function renderCompanion() {
+    if (!els.companion) return;
+    if (needsStarterChoice() || companionState.hidden || !companionState.id) {
+      els.companion.classList.add("hidden");
+      els.companion.classList.remove("can-evolve");
+      els.companionEvoBadge?.classList.add("hidden");
+      if (companionRaf) {
+        cancelAnimationFrame(companionRaf);
+        companionRaf = 0;
+      }
+      return;
+    }
+    els.companion.classList.remove("hidden");
+    setCompanionSprite(companionState.id);
+    const ready = canEvolveActive();
+    els.companion.classList.toggle("can-evolve", ready);
+    els.companionEvoBadge?.classList.toggle("hidden", !ready);
+    els.companion.setAttribute(
+      "title",
+      ready
+        ? `${capitalize(pokeName(companionState.id))} puede evolucionar · clic`
+        : `${capitalize(pokeName(companionState.id))} · clic para Pokédex`
+    );
+    const bounds = companionBounds();
+    companionState.x = Math.max(bounds.minX, Math.min(bounds.maxX, companionState.x));
+    companionState.y = bounds.y;
+    els.companion.style.left = `${companionState.x}px`;
+    els.companion.style.top = `${companionState.y}px`;
+    startCompanionWalk();
+  }
+
+  function startCompanionWalk() {
+    if (!els.companion || companionState.hidden) return;
+    if (companionRaf) cancelAnimationFrame(companionRaf);
+    let dirX = 1;
+    let last = performance.now();
+    const speed = 52; /* px/s */
+
+    const step = (now) => {
+      if (companionState.hidden || !els.companion) {
+        companionRaf = 0;
+        return;
+      }
+      const dt = Math.min(0.05, (now - last) / 1000);
+      last = now;
+      const bounds = companionBounds();
+      companionState.x += dirX * speed * dt;
+      companionState.y = bounds.y;
+      if (companionState.x >= bounds.maxX) {
+        companionState.x = bounds.maxX;
+        dirX = -1;
+      } else if (companionState.x <= bounds.minX) {
+        companionState.x = bounds.minX;
+        dirX = 1;
+      }
+      /* Sin salto: solo desliza en X y voltea el GIF animado. */
+      els.companion.style.left = `${companionState.x}px`;
+      els.companion.style.top = `${companionState.y}px`;
+      els.companion.style.transform = `scaleX(${dirX})`;
+      companionRaf = requestAnimationFrame(step);
+    };
+    companionRaf = requestAnimationFrame(step);
+  }
+
+  function cardAnchor(entry) {
+    return {
+      x: (entry.x || 0) + CARD_W / 2,
+      y: (entry.y || 0) + CARD_H / 2,
+    };
+  }
+
+  function renderBreedLinks() {
+    if (!els.treeLinks) return;
+    const byUid = new Map(saved.map((entry) => [entry.uid, entry]));
+    const parts = [];
+
+    for (const baby of saved) {
+      if (!Array.isArray(baby.parentUids) || baby.parentUids.length < 2) continue;
+      const parentA = byUid.get(baby.parentUids[0]);
+      const parentB = byUid.get(baby.parentUids[1]);
+      if (!parentA || !parentB) continue;
+
+      const a = cardAnchor(parentA);
+      const b = cardAnchor(parentB);
+      const c = cardAnchor(baby);
+      const midX = (a.x + b.x) / 2;
+      const midY = (a.y + b.y) / 2;
+
+      parts.push(
+        `<line class="tree-link tree-link--pair" x1="${a.x}" y1="${a.y}" x2="${b.x}" y2="${b.y}" />`,
+        `<line class="tree-link" x1="${a.x}" y1="${a.y}" x2="${midX}" y2="${midY}" />`,
+        `<line class="tree-link" x1="${b.x}" y1="${b.y}" x2="${midX}" y2="${midY}" />`,
+        `<line class="tree-link" x1="${midX}" y1="${midY}" x2="${c.x}" y2="${c.y}" marker-end="url(#tree-arrow)" />`
+      );
+    }
+
+    els.treeLinks.innerHTML = parts.join("");
+  }
+
+  function openUpdatesModal() {
+    els.updatesModal?.classList.remove("hidden");
+    els.updatesModal?.setAttribute("aria-hidden", "false");
+  }
+
+  function closeUpdatesModal() {
+    els.updatesModal?.classList.add("hidden");
+    els.updatesModal?.setAttribute("aria-hidden", "true");
+  }
+
+  function openCompanionModal() {
+    if (needsStarterChoice()) {
+      openStarterModal();
+      return;
+    }
+    renderDexPanel();
+    els.companionModal?.classList.remove("hidden");
+    els.companionModal?.setAttribute("aria-hidden", "false");
+  }
+
+  function closeCompanionModal() {
+    els.companionModal?.classList.add("hidden");
+    els.companionModal?.setAttribute("aria-hidden", "true");
+  }
+
+  function playCatchSfx(legendary = false) {
+    if (legendary) {
+      [392, 523, 659, 784].forEach((freq, i) => {
+        setTimeout(() => playBeep({ freq, duration: 0.07, gain: 0.04 }), i * 70);
+      });
+      return;
+    }
+    playBeep({ freq: 500, duration: 0.05, gain: 0.035 });
+    setTimeout(() => playBeep({ freq: 700, duration: 0.08, gain: 0.04 }), 60);
+  }
+
+  function playAppearSfx(legendary = false) {
+    playBeep({
+      freq: legendary ? 620 : 440,
+      duration: 0.06,
+      gain: 0.03,
+    });
+  }
+
+  function playFleeSfx() {
+    playBeep({ freq: 280, duration: 0.08, gain: 0.028 });
+  }
+
+  function showDexCatchToast(id, kind) {
+    const name = pokeName(id);
+    if (els.dexToastSprite) els.dexToastSprite.src = spriteUrl(id);
+    if (els.dexToastTitle) {
+      els.dexToastTitle.textContent =
+        kind === "legendary"
+          ? "¡Legendario!"
+          : kind === "evolve"
+            ? "¡Evolución!"
+            : kind === "appear"
+              ? "¡Salvaje!"
+              : "¡Atrapado!";
+    }
+    if (els.dexToastText) {
+      els.dexToastText.textContent =
+        kind === "evolve"
+          ? `${capitalize(name)} evoluciona y se une a tu equipo`
+          : kind === "appear"
+            ? `${capitalize(name)} · haz clic para atraparlo`
+            : `Atrapaste a ${capitalize(name)}`;
+    }
+    els.dexToast?.classList.remove("hidden");
+    clearTimeout(showDexCatchToast._t);
+    showDexCatchToast._t = setTimeout(() => {
+      els.dexToast?.classList.add("hidden");
+    }, kind === "appear" ? 2800 : 4200);
+  }
+
+  function clearWildSpawn({ fled = false } = {}) {
+    clearTimeout(spawnFleeTimer);
+    spawnFleeTimer = 0;
+    if (!els.dexSpawn) {
+      activeSpawn = null;
+      return;
+    }
+    if (fled) {
+      els.dexSpawn.classList.add("is-fleeing");
+      playFleeSfx();
+      setTimeout(() => {
+        els.dexSpawn.classList.add("hidden");
+        els.dexSpawn.classList.remove("is-fleeing", "is-legendary");
+        activeSpawn = null;
+      }, 320);
+      return;
+    }
+    els.dexSpawn.classList.add("hidden");
+    els.dexSpawn.classList.remove("is-fleeing", "is-legendary");
+    activeSpawn = null;
+  }
+
+  function spawnWildEncounter(id, kind = "wild") {
+    if (!els.dexSpawn || !els.dexSpawnSprite || !els.sheetScroll) return;
+    if (activeSpawn) return;
+    if (isCaught(id)) return;
+
+    const scroll = els.sheetScroll;
+    const size = 84;
+    const pad = 24;
+    const minX = scroll.scrollLeft + pad;
+    const maxX = Math.max(
+      minX + size,
+      scroll.scrollLeft + scroll.clientWidth - size - pad
+    );
+    const minY = scroll.scrollTop + pad;
+    const maxY = Math.max(
+      minY + size,
+      scroll.scrollTop + scroll.clientHeight - size - 90
+    );
+    const x = minX + Math.random() * Math.max(8, maxX - minX);
+    const y = minY + Math.random() * Math.max(8, maxY - minY);
+    const legendary = kind === "legendary";
+
+    activeSpawn = { id, kind, x, y };
+    els.dexSpawnSprite.src = spriteUrl(id);
+    els.dexSpawnSprite.alt = pokeName(id);
+    els.dexSpawn.style.left = `${x}px`;
+    els.dexSpawn.style.top = `${y}px`;
+    els.dexSpawn.classList.toggle("is-legendary", legendary);
+    els.dexSpawn.classList.remove("hidden", "is-fleeing");
+    els.dexSpawn.setAttribute(
+      "aria-label",
+      `Atrapar ${pokeName(id)}`
+    );
+    els.dexSpawn.querySelector(".dex-spawn__hint").textContent = legendary
+      ? "¡Legendario!"
+      : "¡Clic!";
+
+    playAppearSfx(legendary);
+    showDexCatchToast(id, "appear");
+    showToast(`¡${capitalize(pokeName(id))} salvaje! Clic para atrapar`);
+
+    clearTimeout(spawnFleeTimer);
+    spawnFleeTimer = setTimeout(() => {
+      if (!activeSpawn || activeSpawn.id !== id) return;
+      const name = pokeName(id);
+      clearWildSpawn({ fled: true });
+      showToast(`${capitalize(name)} huyó…`);
+    }, legendary ? 9000 : 6500);
+  }
+
+  function tryCatchSpawn() {
+    if (!activeSpawn) return;
+    const { id, kind } = activeSpawn;
+    clearWildSpawn({ fled: false });
+    catchPokemon(id, { kind });
+  }
+
+  function catchPokemon(id, { kind = "wild", silent = false } = {}) {
+    const key = String(id);
+    if (companionState.caught[key]) return false;
+    companionState.caught[key] = {
+      id,
+      at: new Date().toISOString(),
+      source: kind,
+    };
+    if (!companionState.id || !isCaught(companionState.id)) {
+      companionState.id = id;
+    }
+    companionState.hidden = false;
+    persistCompanionState();
+    if (!silent) {
+      playCatchSfx(kind === "legendary");
+      showDexCatchToast(id, kind);
+      showToast(`Pokédex: ${capitalize(pokeName(id))}`);
+    }
+    renderCompanion();
+    if (els.companionModal && !els.companionModal.classList.contains("hidden")) {
+      renderDexPanel();
+    }
+    return true;
+  }
+
+  function pickEncounterId() {
+    const all = allPokeIds();
+    const missingStarters = DEX_STARTERS.filter((id) => !isCaught(id));
+    const missingLegend = all.filter((id) => isLegendaryId(id) && !isCaught(id));
+    const missingWild = all.filter(
+      (id) => !isCaught(id) && !isLegendaryId(id) && !DEX_STARTERS.includes(id)
+    );
+    const roll = Math.random();
+
+    /* Primero completar iniciales de Kanto; luego cualquier gen; legendario raro. */
+    if (missingLegend.length && roll < 0.01) {
+      return {
+        id: missingLegend[Math.floor(Math.random() * missingLegend.length)],
+        kind: "legendary",
+      };
+    }
+    if (missingStarters.length && roll < 0.7) {
+      return {
+        id: missingStarters[Math.floor(Math.random() * missingStarters.length)],
+        kind: "starter",
+      };
+    }
+    if (missingWild.length) {
+      return {
+        id: missingWild[Math.floor(Math.random() * missingWild.length)],
+        kind: "wild",
+      };
+    }
+    if (missingStarters.length) {
+      return {
+        id: missingStarters[Math.floor(Math.random() * missingStarters.length)],
+        kind: "starter",
+      };
+    }
+    if (missingLegend.length && roll < 0.05) {
+      return {
+        id: missingLegend[Math.floor(Math.random() * missingLegend.length)],
+        kind: "legendary",
+      };
+    }
+    return null;
+  }
+
+  const DEX_ENCOUNTER_COOLDOWN_MS = 30 * 60 * 1000; /* mínimo 30 min entre apariciones */
+
+  function maybeDexEncounter(chance = 0.35) {
+    if (needsStarterChoice() || activeSpawn) return;
+    const now = Date.now();
+    if (now - (companionState.lastEncounterAt || 0) < DEX_ENCOUNTER_COOLDOWN_MS) return;
+    if (Math.random() > chance) return;
+    const found = pickEncounterId();
+    if (!found) return;
+    companionState.lastEncounterAt = now;
+    persistCompanionState();
+    spawnWildEncounter(found.id, found.kind);
+  }
+
+  function evolutionProgress() {
+    const from = companionState.id;
+    const next = DEX_EVOLUTIONS[from];
+    if (!next || isCaught(next) || !isCaught(from)) {
+      return { ready: false, next: null, ratio: 0, label: "Sin evolución disponible" };
+    }
+    const entry = companionState.caught[String(from)];
+    const ageMs = Math.max(0, Date.now() - new Date(entry?.at || 0).getTime());
+    const ageNeed = 3 * 60 * 1000;
+    const breedNeed = 2;
+    const breeds = companionState.breeds || 0;
+    const ageRatio = Math.min(1, ageMs / ageNeed);
+    const breedRatio = Math.min(1, breeds / breedNeed);
+    const ratio = Math.max(ageRatio, breedRatio);
+    const ready = ratio >= 1;
+    const secsLeft = Math.max(0, Math.ceil((ageNeed - ageMs) / 1000));
+    const breedsLeft = Math.max(0, breedNeed - breeds);
+    let label;
+    if (ready) {
+      label = `Listo para evolucionar a ${capitalize(pokeName(next))}`;
+    } else if (breedRatio >= ageRatio) {
+      label = `Progreso · faltan ${breedsLeft} crianza(s) o ${secsLeft}s`;
+    } else {
+      label = `Progreso · ${secsLeft}s o ${breedsLeft} crianza(s)`;
+    }
+    return { ready, next, ratio, label };
+  }
+
+  function canEvolveActive() {
+    return evolutionProgress().ready;
+  }
+
+  function evolveActiveCompanion() {
+    const progress = evolutionProgress();
+    const from = companionState.id;
+    const next = progress.next || DEX_EVOLUTIONS[from];
+    if (!progress.ready || !next) {
+      showToast("Aún no puede evolucionar · mira la barra de progreso");
+      return;
+    }
+    catchPokemon(next, { kind: "evolve" });
+    companionState.id = next;
+    persistCompanionState();
+    renderCompanion();
+    renderDexPanel();
+  }
+
+  function renderDexPanel() {
+    const total = dexPoolSize();
+    if (els.dexProgress) {
+      els.dexProgress.textContent = `Atrapados ${dexCaughtCount()} / ${total} · empiezas con iniciales de Kanto · pueden salir Pokémon de todas las generaciones (legendarios raros).`;
+    }
+    const progress = evolutionProgress();
+    if (els.dexActive) {
+      const id = companionState.id;
+      const name = pokeName(id);
+      const next = progress.next;
+      const pct = Math.round(progress.ratio * 100);
+      els.dexActive.classList.toggle("is-ready", progress.ready);
+      els.dexActive.innerHTML = `
+        <div class="dex-active__row">
+          <div class="dex-active__sprites">
+            <img src="${escapeHtml(spriteUrl(id))}" alt="" width="64" height="64" />
+            ${
+              next
+                ? `<span class="dex-active__arrow" aria-hidden="true">▸</span>
+                   <img class="is-next" src="${escapeHtml(spriteUrl(next))}" alt="" width="64" height="64" />`
+                : ""
+            }
+          </div>
+          <div class="dex-active__meta">
+            <strong>${escapeHtml(capitalize(name))}</strong>
+            <span>Mascota activa · #${padId(id)}</span>
+            <span class="dex-active__status${progress.ready ? " is-ready" : ""}">
+              ${progress.ready ? "✦ Puede evolucionar" : next ? "Evolución en progreso" : "Forma final / sin evo"}
+            </span>
+          </div>
+        </div>
+        ${
+          next
+            ? `<div class="dex-evo-track" aria-hidden="true"><div class="dex-evo-track__fill" style="width:${pct}%"></div></div>
+               <p class="dex-evo-label">${escapeHtml(progress.label)} · ${pct}%</p>`
+            : `<p class="dex-evo-label">${escapeHtml(progress.label)}</p>`
+        }
+      `;
+    }
+    if (els.btnDexEvolve) {
+      els.btnDexEvolve.disabled = !progress.ready;
+      els.btnDexEvolve.classList.toggle("is-ready", progress.ready);
+      els.btnDexEvolve.textContent = progress.ready
+        ? "✦ Evolucionar ahora"
+        : "Evolucionar";
+      els.btnDexEvolve.title = progress.ready
+        ? "¡Listo! Evolucionar mascota"
+        : progress.label;
+    }
+    if (!els.companionGrid) return;
+
+    const q = String(els.dexSearch?.value || "")
+      .trim()
+      .toLowerCase();
+    const all = allPokeIds();
+    const caughtIds = Object.keys(companionState.caught)
+      .map(Number)
+      .sort((a, b) => a - b);
+
+    let ordered;
+    if (q) {
+      ordered = all
+        .filter((id) => {
+          const name = pokeName(id).toLowerCase();
+          return name.includes(q) || String(id).includes(q) || padId(id).includes(q);
+        })
+        .slice(0, 120);
+    } else {
+      /* Sin búsqueda: atrapados + huecos de Kanto + muestra de no atrapados. */
+      const kantoLocked = all
+        .filter((id) => id <= 151 && !isCaught(id))
+        .slice(0, 40);
+      const otherLocked = all
+        .filter((id) => id > 151 && !isCaught(id))
+        .slice(0, 40);
+      ordered = [...caughtIds, ...kantoLocked, ...otherLocked].filter(
+        (id, i, arr) => arr.indexOf(id) === i
+      );
+    }
+
+    els.companionGrid.innerHTML = "";
+    if (!ordered.length) {
+      els.companionGrid.innerHTML =
+        '<p class="list-status">Sin resultados en la Pokédex.</p>';
+      return;
+    }
+    const frag = document.createDocumentFragment();
+    ordered.forEach((id) => {
+      const caught = isCaught(id);
+      const legendary = isLegendaryId(id);
+      const btn = document.createElement("button");
+      btn.type = "button";
+      btn.className =
+        "companion-option" +
+        (companionState.id === id ? " is-selected" : "") +
+        (caught ? "" : " is-locked") +
+        (legendary ? " is-legendary" : "");
+      btn.setAttribute("role", "option");
+      btn.disabled = !caught;
+      btn.innerHTML = `
+        <img src="${escapeHtml(spriteUrl(id))}" alt="" width="56" height="56" loading="lazy" />
+        <span>${caught ? escapeHtml(pokeName(id)) : "???"}</span>
+      `;
+      if (caught) {
+        btn.addEventListener("click", () => chooseCompanion(id));
+      }
+      frag.appendChild(btn);
+    });
+    els.companionGrid.appendChild(frag);
+  }
+
+  function chooseCompanion(id) {
+    if (!isCaught(id)) {
+      showToast("Todavía no lo has atrapado");
+      return;
+    }
+    companionState.id = id;
+    companionState.hidden = false;
+    persistCompanionState();
+    renderCompanion();
+    renderDexPanel();
+    showToast(`Mascota: ${capitalize(pokeName(id))}`);
+  }
+
+  function hideCompanion() {
+    companionState.hidden = true;
+    persistCompanionState();
+    renderCompanion();
+    closeCompanionModal();
+    showToast("Mascota ocultada");
+  }
+
+  function onDexBreedActivity() {
+    companionState.breeds = (companionState.breeds || 0) + 1;
+    persistCompanionState();
+    maybeDexEncounter(0.25);
+  }
+
+  function ensureAudio() {
+    if (sfxMuted) return null;
+    const AC = window.AudioContext || window.webkitAudioContext;
+    if (!AC) return null;
+    if (!audioCtx) audioCtx = new AC();
+    if (audioCtx.state === "suspended") audioCtx.resume().catch(() => {});
+    return audioCtx;
+  }
+
+  function playBeep({ freq = 440, duration = 0.07, gain = 0.045, type = "square" } = {}) {
+    const ctx = ensureAudio();
+    if (!ctx) return;
+    const osc = ctx.createOscillator();
+    const vol = ctx.createGain();
+    osc.type = type;
+    osc.frequency.value = freq;
+    vol.gain.setValueAtTime(gain, ctx.currentTime);
+    vol.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + duration);
+    osc.connect(vol);
+    vol.connect(ctx.destination);
+    osc.start();
+    osc.stop(ctx.currentTime + duration + 0.02);
+  }
+
+  function playReadySfx(becameReady) {
+    if (becameReady) {
+      playBeep({ freq: 480, duration: 0.05, gain: 0.035 });
+      setTimeout(() => playBeep({ freq: 640, duration: 0.07, gain: 0.04 }), 55);
+    } else {
+      playBeep({ freq: 360, duration: 0.06, gain: 0.03 });
+    }
+  }
+
+  function playBreedSfx() {
+    [392, 494, 587].forEach((freq, i) => {
+      setTimeout(() => playBeep({ freq, duration: 0.06, gain: 0.038 }), i * 65);
+    });
+  }
+
+  function syncSfxButton() {
+    const btn = document.getElementById("btn-sfx");
+    if (!btn) return;
+    btn.classList.toggle("is-muted", sfxMuted);
+    btn.setAttribute("aria-pressed", sfxMuted ? "false" : "true");
+    btn.title = sfxMuted ? "Sonido: apagado" : "Sonido: suave";
+    btn.querySelector(".sfx-icon--on")?.classList.toggle("hidden", sfxMuted);
+    btn.querySelector(".sfx-icon--off")?.classList.toggle("hidden", !sfxMuted);
+  }
+
+  function toggleSfxMute() {
+    sfxMuted = !sfxMuted;
+    try {
+      localStorage.setItem(SFX_MUTE_KEY, sfxMuted ? "1" : "0");
+    } catch (_) {
+      /* ignore */
+    }
+    syncSfxButton();
+    if (!sfxMuted) playBeep({ freq: 520, duration: 0.05, gain: 0.03 });
+    showToast(sfxMuted ? "Sonido apagado" : "Sonido suave");
+  }
+
+  function tagsFromIvs(ivValues) {
+    return IV_STATS.filter((stat) => (ivValues?.[stat.key] ?? 0) === 31).map(
+      (stat) => stat.key
+    );
+  }
+
+  function buildTagFilterUi() {
+    if (!els.tagFilter) return;
+    const options = [
+      { id: "", label: "Todas" },
+      ...IV_STATS.map((stat) => ({ id: stat.key, label: stat.label })),
+    ];
+    els.tagFilter.innerHTML = `<span class="tag-filter__label">IVs</span>${options
+      .map(
+        (opt) =>
+          `<button type="button" class="tag-filter__btn${tagFilter === opt.id ? " is-active" : ""}" data-tag-filter="${opt.id}">${opt.label}</button>`
+      )
+      .join("")}`;
+  }
+
+  function setTagFilter(next) {
+    tagFilter = next || "";
+    buildTagFilterUi();
+    renderSaved();
+  }
+
+  function toggleReady(uid) {
+    const entry = saved.find((s) => s.uid === uid);
+    if (!entry) return;
+    pushUndo();
+    entry.ready = !entry.ready;
+    persist();
+    hideMenu();
+    renderSaved();
+    playReadySfx(entry.ready);
+    if (entry.ready) maybeDexEncounter(0.18);
+    showToast(entry.ready ? "Marcado como listo" : "Ya no está listo");
   }
 
   function capitalize(str) {
@@ -1234,6 +2118,7 @@
     pendingDrop = null;
     pushUndo();
 
+    const ivValues = { ...ivs };
     const entry = {
       uid: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
       id: selected.id,
@@ -1242,7 +2127,8 @@
       gender,
       nature: nature || "",
       eggGroups: [...(selected.eggGroups || [])],
-      ivs: { ...ivs },
+      ivs: ivValues,
+      lineTags: tagsFromIvs(ivValues),
       x: pos.x,
       y: pos.y,
       isBaby: false,
@@ -1698,11 +2584,21 @@
       if (typeof entry.y !== "number") entry.y = 28;
 
       const card = document.createElement("article");
-      card.className = "saved-card" + (entry.isBaby ? " is-baby" : "");
+      const perfectTags = tagsFromIvs(entry.ivs);
+      entry.lineTags = perfectTags;
+
+      card.className =
+        "saved-card" +
+        (entry.isBaby ? " is-baby" : "") +
+        (entry.ready ? " is-ready" : "");
       card.dataset.gender = entry.gender;
       card.dataset.uid = entry.uid;
       card.style.left = `${entry.x}px`;
       card.style.top = `${entry.y}px`;
+      if (entry.ready) card.style.zIndex = "0";
+      if (tagFilter && !perfectTags.includes(tagFilter)) {
+        card.classList.add("is-tag-dimmed");
+      }
 
       const pairSource = pairSourceUid
         ? saved.find((s) => s.uid === pairSourceUid)
@@ -1731,9 +2627,18 @@
         entry.heldPlan
           ? `<p class="saved-card__parents">♂ ${escapeHtml(entry.heldPlan.male)} · ♀ ${escapeHtml(entry.heldPlan.female)}</p>`
           : "";
+      const tagsHtml = perfectTags.length
+        ? `<div class="saved-card__line-tags">${perfectTags
+            .map((key) => {
+              const label = IV_STATS.find((s) => s.key === key)?.label || key;
+              return `<span class="saved-card__line-tag" data-tag="${key}">${escapeHtml(label)}</span>`;
+            })
+            .join("")}</div>`
+        : "";
 
       card.innerHTML = `
         ${entry.isBaby ? '<span class="saved-card__badge">Cría</span>' : ""}
+        ${entry.ready ? '<span class="saved-card__ready-tag">Listo</span>' : ""}
         <button type="button" class="saved-card__delete" aria-label="Eliminar" data-delete="${entry.uid}">×</button>
         <img class="saved-card__sprite" src="${escapeHtml(entry.sprite)}" alt="${escapeHtml(entry.name)}" loading="lazy" />
         <h3 class="saved-card__name">${escapeHtml(entry.name)}</h3>
@@ -1742,6 +2647,7 @@
         ${parentsHtml}
         ${heldHtml}
         <div class="saved-card__ivs">${ivHtml}</div>
+        ${tagsHtml}
       `;
 
       card.addEventListener("pointerdown", (e) => onCardPointerDown(e, card, entry));
@@ -1750,6 +2656,7 @@
 
     renderPastes(false);
     renderTextBoxes(false);
+    renderBreedLinks();
     updateBreedTotal();
     renderPages();
   }
@@ -1971,6 +2878,11 @@
 
     drag.card.style.left = `${x}px`;
     drag.card.style.top = `${y}px`;
+    if (drag.kind === "card" && drag.entry) {
+      drag.entry.x = x;
+      drag.entry.y = y;
+      renderBreedLinks();
+    }
   }
 
   function onPointerUp(e) {
@@ -2010,6 +2922,10 @@
 
   function openMenu(x, y, uid) {
     menuUid = uid;
+    const entry = saved.find((s) => s.uid === uid);
+    if (els.menuReady) {
+      els.menuReady.textContent = entry?.ready ? "Quitar listo" : "Marcar listo";
+    }
     els.contextMenu.classList.remove("hidden");
     const pad = 8;
     const mw = els.contextMenu.offsetWidth || 160;
@@ -2147,6 +3063,7 @@
     const pos = nextFreePosition(midX, midY);
     pushUndo();
 
+    const ivValues = { ...babyIvs };
     const entry = {
       uid: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
       id: species.id,
@@ -2155,7 +3072,8 @@
       gender: babyGender,
       nature: "",
       eggGroups: [...(species.eggGroups || [])],
-      ivs: { ...babyIvs },
+      ivs: ivValues,
+      lineTags: tagsFromIvs(ivValues),
       x: pos.x,
       y: pos.y,
       isBaby: true,
@@ -2175,6 +3093,8 @@
     persist();
     closeBreedModal();
     renderSaved();
+    playBreedSfx();
+    onDexBreedActivity();
     showToast(`¡Cría de ${capitalize(species.name)} creada!`);
   }
 
@@ -2305,16 +3225,74 @@
     els.btnSave.addEventListener("click", saveEntry);
     els.btnClearForm.addEventListener("click", clearFormIvs);
     els.btnCloseEditor?.addEventListener("click", closeEditor);
-    els.btnClearAll.addEventListener("click", clearAll);
-    els.btnClearInk.addEventListener("click", onClearInkClick);
+    els.btnClearAll?.addEventListener("click", clearAll);
+    els.btnClearInk?.addEventListener("click", onClearInkClick);
     els.btnClearShots?.addEventListener("click", clearPastes);
     els.btnNewPage?.addEventListener("click", addPage);
     els.btnExportPage?.addEventListener("click", exportActivePage);
     els.btnImportPage?.addEventListener("click", () => els.pageImportFile?.click());
     els.btnPublishCommunity?.addEventListener("click", publishActivePageToCommunity);
+    const bindNavTools = () => {
+      els.btnUpdates = document.getElementById("btn-updates");
+      els.btnCompanion = document.getElementById("btn-companion");
+      const btnSfx = document.getElementById("btn-sfx");
+      if (els.btnUpdates) els.btnUpdates.onclick = () => openUpdatesModal();
+      if (els.btnCompanion) els.btnCompanion.onclick = () => openCompanionModal();
+      if (btnSfx) btnSfx.onclick = () => toggleSfxMute();
+      syncSfxButton();
+    };
+    bindNavTools();
+    document.addEventListener("crianza:nav", bindNavTools);
+    document.addEventListener("crianza:auth", bindNavTools);
+
+    els.tagFilter?.addEventListener("click", (e) => {
+      const btn = e.target.closest("[data-tag-filter]");
+      if (!btn) return;
+      setTagFilter(btn.getAttribute("data-tag-filter") || "");
+    });
+    buildTagFilterUi();
     els.pageImportFile?.addEventListener("change", (e) =>
       importPageFile(e.target.files?.[0])
     );
+
+    els.updatesModal?.querySelectorAll("[data-close-updates]").forEach((el) => {
+      el.addEventListener("click", closeUpdatesModal);
+    });
+    els.companionModal?.querySelectorAll("[data-close-companion]").forEach((el) => {
+      el.addEventListener("click", closeCompanionModal);
+    });
+    els.btnCompanionHide?.addEventListener("click", hideCompanion);
+    els.btnDexEvolve?.addEventListener("click", evolveActiveCompanion);
+    els.dexSearch?.addEventListener("input", () => renderDexPanel());
+    els.companion?.addEventListener("click", openCompanionModal);
+    els.starterPicks?.addEventListener("click", (e) => {
+      const btn = e.target.closest("[data-starter]");
+      if (!btn) return;
+      chooseStarter(Number(btn.getAttribute("data-starter")));
+    });
+    els.dexSpawn?.addEventListener("click", (e) => {
+      e.stopPropagation();
+      tryCatchSpawn();
+    });
+    window.addEventListener("resize", () => {
+      if (!companionState.hidden) renderCompanion();
+    });
+    els.sheetScroll?.addEventListener(
+      "scroll",
+      () => {
+        if (!companionState.hidden) {
+          const bounds = companionBounds();
+          companionState.x = Math.max(bounds.minX, Math.min(bounds.maxX, companionState.x));
+          companionState.y = bounds.y;
+          if (els.companion) {
+            els.companion.style.left = `${companionState.x}px`;
+            els.companion.style.top = `${companionState.y}px`;
+          }
+        }
+      },
+      { passive: true }
+    );
+    window.addEventListener("beforeunload", () => persistCompanionState());
 
     els.sheet?.addEventListener("dragover", onSheetDragOver);
     els.sheet?.addEventListener("dragleave", onSheetDragLeave);
@@ -2330,7 +3308,7 @@
     els.list?.addEventListener("pointerup", onListPanEnd);
     els.list?.addEventListener("pointercancel", onListPanEnd);
 
-    document.querySelectorAll(".tool-btn").forEach((btn) => {
+    document.querySelectorAll(".tool-btn[data-tool]").forEach((btn) => {
       btn.addEventListener("click", () => setTool(btn.dataset.tool));
     });
 
@@ -2347,6 +3325,9 @@
       deleteEntry(btn.dataset.delete);
     });
 
+    els.menuReady?.addEventListener("click", () => {
+      if (menuUid) toggleReady(menuUid);
+    });
     els.menuUnite.addEventListener("click", startUnite);
     els.menuDelete.addEventListener("click", () => {
       if (menuUid) deleteEntry(menuUid);
@@ -2377,8 +3358,20 @@
       }
 
       if (e.key === "Escape") {
+        if (els.starterModal && !els.starterModal.classList.contains("hidden")) {
+          /* Hay que elegir inicial; no se cierra con Esc. */
+          return;
+        }
         if (els.breedModal && !els.breedModal.classList.contains("hidden")) {
           closeBreedModal();
+          return;
+        }
+        if (els.updatesModal && !els.updatesModal.classList.contains("hidden")) {
+          closeUpdatesModal();
+          return;
+        }
+        if (els.companionModal && !els.companionModal.classList.contains("hidden")) {
+          closeCompanionModal();
           return;
         }
         if (els.editor && !els.editor.classList.contains("hidden")) {
@@ -2449,7 +3442,30 @@
     loadDrawingFromPage();
     renderSaved();
     renderPastes();
+    persistCompanionState();
+    renderCompanion();
+    if (needsStarterChoice()) {
+      openStarterModal();
+    }
     maybeImportFromCommunity();
+    clearInterval(dexEncounterTimer);
+    dexEncounterTimer = setInterval(() => {
+      /* Tras 30+ min de cooldown, baja probabilidad de que salga uno. */
+      maybeDexEncounter(0.2);
+      if (!companionState.hidden) renderCompanion();
+      if (els.companionModal && !els.companionModal.classList.contains("hidden")) {
+        renderDexPanel();
+      }
+    }, 10 * 60 * 1000);
+    setInterval(() => {
+      if (companionState.hidden) return;
+      const ready = canEvolveActive();
+      const shown = els.companion?.classList.contains("can-evolve");
+      if (ready !== shown) renderCompanion();
+      if (ready && els.companionModal && !els.companionModal.classList.contains("hidden")) {
+        renderDexPanel();
+      }
+    }, 5000);
 
     window.CrianzaApp = {
       buildActivePagePayload,
@@ -2466,6 +3482,7 @@
       els.listStatus?.remove();
       renderEggChips();
       renderList();
+      setCompanionSprite(companionState.id);
     } catch (err) {
       if (els.listStatus) {
         els.listStatus.textContent =
