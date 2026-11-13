@@ -1,7 +1,13 @@
+# Empaquetados / logs locales
 crianza-netlify.zip
 *.zip
 firebase-debug.log
 .firebase/
 node_modules/
+
+# SO / editor
 .DS_Store
 Thumbs.db
+*.swp
+.idea/
+.vscode/
