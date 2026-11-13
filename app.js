@@ -2812,7 +2812,7 @@
     if (e.button !== undefined && e.button !== 0) return;
     if (
       e.target.closest(
-        ".saved-card, .paste-shot, .note-text, .saved-card__delete, .paste-shot__delete"
+        ".saved-card, .paste-shot, .note-text, .saved-card__delete, .paste-shot__delete, .dex-spawn, .companion"
       )
     ) {
       return;
@@ -3270,9 +3270,15 @@
       if (!btn) return;
       chooseStarter(Number(btn.getAttribute("data-starter")));
     });
-    els.dexSpawn?.addEventListener("click", (e) => {
+    els.dexSpawn?.addEventListener("pointerdown", (e) => {
+      if (e.button !== undefined && e.button !== 0) return;
+      e.preventDefault();
       e.stopPropagation();
       tryCatchSpawn();
+    });
+    els.dexSpawn?.addEventListener("click", (e) => {
+      e.preventDefault();
+      e.stopPropagation();
     });
     window.addEventListener("resize", () => {
       if (!companionState.hidden) renderCompanion();
