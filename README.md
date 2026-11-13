@@ -1,5 +1,7 @@
 # Crianza · Cuervos Negros
 
+![Cuervos Negros](assets/readme-cuervos.png)
+
 Cuaderno de crianza para **Cobblemon**. Anota IVs, une crias, dibuja en la mesa y comparte con el clan.
 
 ### [Abrir el cuaderno](https://yoditagege.github.io/PaginawebCrianza/)
