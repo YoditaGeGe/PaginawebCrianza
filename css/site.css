@@ -1,0 +1,355 @@
+:root {
+  --site-bg: #0a0608;
+  --site-surface: #140c10;
+  --site-ink: #efe6e8;
+  --site-muted: #a89096;
+  --site-accent: #c42830;
+  --site-line: rgba(196, 40, 48, 0.32);
+  --site-font: "VT323", monospace;
+  --site-display: "Press Start 2P", monospace;
+}
+
+body.site-body {
+  margin: 0;
+  min-height: 100vh;
+  color: var(--site-ink);
+  background:
+    radial-gradient(ellipse at 18% 0%, rgba(196, 40, 48, 0.22), transparent 48%),
+    radial-gradient(ellipse at 90% 100%, rgba(80, 10, 18, 0.4), transparent 50%),
+    #0a0608;
+  font-family: var(--site-font);
+  font-size: 1.25rem;
+}
+
+.site-nav {
+  position: sticky;
+  top: 0;
+  z-index: 50;
+  border-bottom: 3px solid var(--site-accent);
+  background: rgba(14, 8, 10, 0.96);
+  backdrop-filter: blur(6px);
+  box-shadow: 0 4px 0 rgba(5, 2, 3, 0.55);
+}
+
+.site-nav__inner {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem 1.25rem;
+  width: 100%;
+  max-width: none;
+  margin: 0;
+  padding: 0.7rem 1.1rem 0.7rem 1rem;
+}
+
+.site-nav__brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.55rem;
+  font-family: var(--site-display);
+  font-size: 0.7rem;
+  color: var(--site-ink);
+  text-decoration: none;
+  text-shadow: 2px 2px 0 #050203;
+  flex-shrink: 0;
+}
+
+.site-nav__mark {
+  width: 36px;
+  height: 36px;
+  object-fit: cover;
+  border: 2px solid var(--site-accent);
+  box-shadow: 2px 2px 0 #050203;
+  background: #000;
+}
+
+.site-nav__cluster {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.65rem 1rem;
+  margin-left: auto;
+}
+
+.site-nav__links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  margin-right: 0;
+}
+
+.site-nav__link {
+  color: var(--site-muted);
+  text-decoration: none;
+  padding: 0.25rem 0.55rem;
+  border: 2px solid transparent;
+}
+
+.site-nav__link:hover,
+.site-nav__link.is-active {
+  color: var(--site-ink);
+  border-color: var(--site-line);
+  background: rgba(196, 40, 48, 0.16);
+}
+
+.site-auth {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.site-auth__avatar {
+  width: 28px;
+  height: 28px;
+  object-fit: cover;
+  border: 2px solid var(--site-accent);
+  background: #000;
+}
+
+.site-auth__name {
+  max-width: 10rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--site-ink);
+  font-size: 1.05rem;
+}
+
+.site-auth__loading {
+  color: var(--site-muted);
+  font-size: 1rem;
+}
+
+.site-auth__btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  font: inherit;
+  cursor: pointer;
+  color: var(--site-ink);
+  background: var(--site-surface);
+  border: 2px solid var(--site-line);
+  padding: 0.28rem 0.75rem;
+}
+
+.site-auth__btn--primary {
+  border-color: #5f6368;
+  background: #fff;
+  color: #3c4043;
+  font-weight: 400;
+  letter-spacing: 0.02em;
+  box-shadow: 2px 2px 0 #050203;
+}
+
+.site-auth__btn--primary:hover {
+  background: #f7f8f8;
+  border-color: #dadce0;
+}
+
+.site-auth__google {
+  width: 18px;
+  height: 18px;
+  flex-shrink: 0;
+  display: block;
+}
+
+.site-main {
+  max-width: 1100px;
+  margin: 0 auto;
+  padding: 1.25rem 1rem 2.5rem;
+}
+
+.site-hero {
+  margin-bottom: 1.25rem;
+}
+
+.site-hero h1 {
+  margin: 0 0 0.35rem;
+  font-family: var(--site-display);
+  font-size: clamp(0.85rem, 2.5vw, 1.05rem);
+  color: var(--site-accent);
+  line-height: 1.45;
+}
+
+.site-hero p {
+  margin: 0;
+  color: var(--site-muted);
+}
+
+.site-alert {
+  border: 2px solid var(--site-line);
+  background: rgba(196, 40, 48, 0.1);
+  padding: 0.75rem 1rem;
+  margin-bottom: 1rem;
+}
+
+.site-card {
+  background: var(--site-surface);
+  border: 2px solid var(--site-line);
+  height: 100%;
+}
+
+.site-card .card-body {
+  color: var(--site-ink);
+}
+
+.site-card .card-title {
+  font-family: var(--site-display);
+  font-size: 0.7rem;
+  line-height: 1.4;
+  color: var(--site-accent);
+}
+
+.site-card .card-text,
+.site-meta {
+  color: var(--site-muted);
+}
+
+.site-empty {
+  text-align: center;
+  padding: 2rem 1rem;
+  border: 2px dashed var(--site-line);
+  color: var(--site-muted);
+}
+
+.twitch-featured-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 1rem;
+}
+
+.twitch-card {
+  border: 2px solid var(--site-line);
+  background:
+    linear-gradient(180deg, rgba(145, 70, 255, 0.08), transparent 40%),
+    var(--site-surface);
+  padding: 1rem;
+  height: 100%;
+}
+
+.twitch-card.is-live {
+  border-color: #e91916;
+  box-shadow: 0 0 0 1px rgba(233, 25, 22, 0.35);
+}
+
+.twitch-card__head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem 1rem;
+  margin-bottom: 0.85rem;
+}
+
+.twitch-card__identity {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  min-width: 0;
+}
+
+.twitch-card__avatar {
+  width: 56px;
+  height: 56px;
+  border-radius: 0;
+  border: 2px solid var(--site-line);
+  object-fit: cover;
+  background: #000;
+}
+
+.twitch-card__title {
+  margin: 0;
+  font-family: var(--site-display);
+  font-size: 0.78rem;
+  color: #efe6e8;
+  line-height: 1.35;
+}
+
+.twitch-card__desc {
+  margin: 0.25rem 0 0;
+  color: var(--site-muted);
+  font-size: 1.05rem;
+}
+
+.live-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.25rem 0.55rem;
+  border: 2px solid #e91916;
+  background: rgba(233, 25, 22, 0.18);
+  color: #ffd0d0;
+  font-family: var(--site-display);
+  font-size: 0.58rem;
+  letter-spacing: 0.04em;
+}
+
+.live-badge__dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #e91916;
+  box-shadow: 0 0 0 0 rgba(233, 25, 22, 0.7);
+  animation: live-pulse 1.4s ease-out infinite;
+}
+
+.offline-badge {
+  display: inline-flex;
+  padding: 0.25rem 0.55rem;
+  border: 2px solid var(--site-line);
+  color: var(--site-muted);
+  font-size: 1rem;
+}
+
+.twitch-card__player {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  margin-bottom: 0.85rem;
+  border: 2px solid #e91916;
+  background: #000;
+  overflow: hidden;
+}
+
+.twitch-card__player iframe {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  border: 0;
+}
+
+.twitch-card__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+@keyframes live-pulse {
+  0% {
+    box-shadow: 0 0 0 0 rgba(233, 25, 22, 0.65);
+  }
+  70% {
+    box-shadow: 0 0 0 8px rgba(233, 25, 22, 0);
+  }
+  100% {
+    box-shadow: 0 0 0 0 rgba(233, 25, 22, 0);
+  }
+}
+
+body.has-site-nav {
+  overflow: hidden;
+}
+
+body.has-site-nav .app {
+  height: calc(100vh - 56px);
+  height: calc(100dvh - 56px);
+}
+
+@media (max-width: 720px) {
+  .site-auth__name {
+    display: none;
+  }
+}

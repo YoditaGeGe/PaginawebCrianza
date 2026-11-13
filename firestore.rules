@@ -1,0 +1,67 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    function isOwner(uid) {
+      return signedIn() && request.auth.uid == uid;
+    }
+
+    function isAdmin() {
+      return signedIn() &&
+        request.auth.token.email != null &&
+        request.auth.token.email in [
+          // Mantén la misma lista que CRIANZA_ADMIN_EMAILS en firebase-config.js
+          "yoditagg.mine@gmail.com"
+        ];
+    }
+
+    match /users/{uid} {
+      allow read: if true;
+      allow create: if isOwner(uid)
+        && request.resource.data.role == "user";
+      /* Dueño mantiene su rol; emails admin (token) pueden subir a admin. */
+      allow update: if isAdmin()
+        || (isOwner(uid) && request.resource.data.role == resource.data.role);
+      allow delete: if isAdmin();
+    }
+
+    match /breedPages/{pageId} {
+      allow read: if resource.data.published == true || isOwner(resource.data.ownerId) || isAdmin();
+      allow create: if signedIn()
+        && request.resource.data.ownerId == request.auth.uid
+        && request.resource.data.published == true
+        && request.resource.data.title is string
+        && request.resource.data.title.size() > 0
+        && request.resource.data.title.size() <= 120;
+      allow update: if isOwner(resource.data.ownerId) || isAdmin()
+        || (signedIn()
+            && request.resource.data.diff(resource.data).affectedKeys().hasOnly(["followsCount"])
+            && request.resource.data.followsCount is int
+            && request.resource.data.followsCount >= 0);
+      allow delete: if isOwner(resource.data.ownerId) || isAdmin();
+    }
+
+    match /follows/{followId} {
+      allow read: if true;
+      allow create: if signedIn()
+        && request.resource.data.userId == request.auth.uid
+        && followId == request.auth.uid + "_" + request.resource.data.pageId;
+      allow delete: if signedIn()
+        && resource.data.userId == request.auth.uid;
+      allow update: if false;
+    }
+
+    match /youtubeChannels/{channelId} {
+      allow read: if true;
+      allow create, update, delete: if isAdmin();
+    }
+
+    match /siteSettings/{docId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+  }
+}

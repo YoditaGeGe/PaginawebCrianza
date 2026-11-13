@@ -1,0 +1,254 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Crianza Pokémon · Cuaderno 8-bit</title>
+  <meta name="color-scheme" content="dark" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=VT323&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="css/site.css" />
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body class="has-site-nav">
+  <header class="site-nav" id="site-nav">
+    <div class="site-nav__inner">
+      <a class="site-nav__brand" href="index.html">
+        <img class="site-nav__mark" src="assets/logo-clan.png" alt="" width="36" height="36" />
+        <span>CRIANZA</span>
+      </a>
+      <div class="site-nav__cluster">
+        <nav class="site-nav__links" aria-label="Secciones">
+          <a class="site-nav__link is-active" href="index.html">Cuaderno</a>
+          <a class="site-nav__link" href="comunidad.html">Comunidad</a>
+          <a class="site-nav__link" href="canales.html">Canales</a>
+        </nav>
+        <button type="button" class="site-auth__btn site-auth__btn--primary" data-auth="in">
+          <svg class="site-auth__google" viewBox="0 0 48 48" aria-hidden="true" focusable="false"><path fill="#FFC107" d="M43.6 20.5H42V20H24v8h11.3C33.7 32.7 29.3 36 24 36c-6.6 0-12-5.4-12-12s5.4-12 12-12c3 0 5.8 1.1 7.9 3l5.7-5.7C34.2 6.1 29.4 4 24 4 12.9 4 4 12.9 4 24s8.9 20 20 20 20-8.9 20-20c0-1.2-.1-2.3-.4-3.5z"/><path fill="#FF3D00" d="M6.3 14.7l6.6 4.8C14.7 15.1 19 12 24 12c3 0 5.8 1.1 7.9 3l5.7-5.7C34.2 6.1 29.4 4 24 4 16.3 4 9.6 8.3 6.3 14.7z"/><path fill="#4CAF50" d="M24 44c5.2 0 10-2 13.6-5.2l-6.3-5.3C29.3 35.1 26.8 36 24 36c-5.3 0-9.7-3.3-11.3-8l-6.5 5C9.5 39.6 16.2 44 24 44z"/><path fill="#1976D2" d="M43.6 20.5H42V20H24v8h11.3c-.8 2.2-2.2 4.1-4 5.5l.1.1 6.3 5.3C39.2 37.3 44 32 44 24c0-1.2-.1-2.3-.4-3.5z"/></svg>
+          <span>Iniciar con Google</span>
+        </button>
+      </div>
+    </div>
+  </header>
+  <div class="app">
+    <aside class="sidebar">
+      <header class="sidebar__header">
+        <p class="clan-credit">Clan <strong>Cuervos Negros</strong> · <em>yoditagg</em></p>
+        <div class="brand-lockup">
+          <img class="brand-lockup__mark" src="assets/logo-clan.png" alt="Cuervos Negros" width="52" height="52" />
+          <h1 class="brand">CRIANZA<span>Cobblemon · IVs</span></h1>
+        </div>
+
+        <div class="pages-panel">
+          <div class="pages-panel__title">
+            <span>Páginas</span>
+            <button type="button" class="btn btn--ghost btn--sm" id="btn-new-page" title="Nueva página">
+              + Nueva
+            </button>
+          </div>
+          <div class="pages-list" id="pages-list" role="tablist" aria-label="Páginas del cuaderno"></div>
+          <div class="pages-actions">
+            <button type="button" class="btn btn--ghost btn--sm" id="btn-export-page" title="Exportar la página actual para compartir">
+              Exportar página
+            </button>
+            <button type="button" class="btn btn--ghost btn--sm" id="btn-import-page" title="Importar una página compartida">
+              Importar página
+            </button>
+            <button type="button" class="btn btn--ghost btn--sm" id="btn-publish-community" title="Subir la página actual a la comunidad (requiere Google)">
+              Subir a comunidad
+            </button>
+            <input class="visually-hidden" type="file" id="page-import-file" accept=".json,application/json" />
+          </div>
+        </div>
+
+        <div class="egg-groups">
+          <div class="egg-groups__title">
+            <span>Grupos</span>
+            <a
+              class="egg-groups__link"
+              href="https://www.pokexperto.net/index2.php?seccion=mecanica/gruposhuevo"
+              target="_blank"
+              rel="noopener noreferrer"
+              title="Ver en Pokéxperto"
+            >info</a>
+          </div>
+          <div class="egg-chips" id="egg-chips" role="group" aria-label="Filtrar por grupo huevo"></div>
+        </div>
+
+        <label class="search">
+          <span class="visually-hidden">Buscar Pokémon</span>
+          <input type="search" id="search" placeholder="Buscar nombre o nº…" autocomplete="off" />
+        </label>
+        <p class="sidebar-hint">Arrastra la lista para ver más · O escribe arriba</p>
+      </header>
+      <div class="pokemon-list" id="pokemon-list" aria-live="polite">
+        <p class="list-status" id="list-status">Cargando…</p>
+      </div>
+      <footer class="site-footer" id="site-footer-logo">
+        <p class="site-footer__tiny">Cuaderno de crianza</p>
+      </footer>
+    </aside>
+
+    <main class="main">
+      <section class="notebook">
+        <div class="notebook__header">
+          <div class="notebook__titles">
+            <h2 class="section-title" id="page-title">Mi cuaderno</h2>
+            <p class="notebook__hint" id="tool-hint">
+              Clic+arrastra el fondo = mover mesa · Unir · Lápiz
+            </p>
+          </div>
+          <div class="toolbar">
+            <div class="tool-group" role="group" aria-label="Herramientas">
+              <button type="button" class="tool-btn is-active" id="tool-move" data-tool="move" title="Mover">
+                Mover
+              </button>
+              <button type="button" class="tool-btn" id="tool-pencil" data-tool="pencil" title="Lápiz">
+                Lápiz
+              </button>
+              <button type="button" class="tool-btn" id="tool-text" data-tool="text" title="Añadir texto">
+                Texto
+              </button>
+              <button type="button" class="tool-btn" id="tool-eraser" data-tool="eraser" title="Borrar trazo">
+                Borrar
+              </button>
+            </div>
+            <output class="breed-total" id="breed-total" aria-live="polite">Total crianza: $0</output>
+            <button type="button" class="btn btn--ghost btn--sm" id="btn-clear-ink" title="Borrar todos los dibujos">
+              Borrar todo
+            </button>
+            <button type="button" class="btn btn--ghost btn--sm" id="btn-clear-shots" title="Borrar pantallazos">
+              Fotos
+            </button>
+            <button type="button" class="btn btn--ghost btn--sm" id="btn-clear-all" title="Borrar todo">
+              Vaciar
+            </button>
+          </div>
+        </div>
+
+        <div class="sheet-scroll" id="sheet-scroll" tabindex="0" title="Ctrl+V para pegar pantallazo">
+          <div class="sheet" id="sheet">
+            <canvas id="draw-layer" width="5000" height="5000" aria-label="Capa de dibujo"></canvas>
+            <svg
+              class="tree-layer"
+              id="tree-layer"
+              width="5000"
+              height="5000"
+              aria-hidden="true"
+            >
+              <defs>
+                <marker
+                  id="tree-arrow"
+                  markerWidth="10"
+                  markerHeight="8"
+                  refX="9"
+                  refY="4"
+                  orient="auto"
+                >
+                  <path d="M0,0 L10,4 L0,8 Z" fill="#e8a54b" />
+                </marker>
+              </defs>
+              <g id="tree-links"></g>
+            </svg>
+            <div class="cards-layer" id="saved-canvas">
+              <p class="list-status canvas__empty" id="saved-empty">Arrastra un Pokémon aquí</p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Editor flotante: no empuja el cuaderno -->
+      <aside class="editor-dock hidden" id="editor" aria-label="Editar Pokémon">
+        <button type="button" class="editor-dock__close" id="btn-close-editor" aria-label="Cerrar editor">×</button>
+
+        <div class="sprite-frame" id="sprite-frame" data-gender="">
+          <img id="pokemon-sprite" alt="" width="96" height="96" />
+          <span class="gender-badge" id="gender-badge"></span>
+        </div>
+
+        <div class="editor-dock__meta">
+          <h2 class="pokemon-name" id="pokemon-name">—</h2>
+          <p class="pokemon-id" id="pokemon-id">#000</p>
+          <p class="pokemon-eggs" id="pokemon-eggs"></p>
+          <div class="gender-toggle" role="group" aria-label="Género">
+            <button type="button" class="gender-btn gender-btn--male" id="btn-male" data-gender="male">
+              ♂
+            </button>
+            <button type="button" class="gender-btn gender-btn--female" id="btn-female" data-gender="female">
+              ♀
+            </button>
+          </div>
+          <label class="nature-field">
+            <span>Nat.</span>
+            <select id="pokemon-nature">
+              <option value="">—</option>
+            </select>
+          </label>
+        </div>
+
+        <div class="ivs editor-dock__ivs">
+          <div class="ivs__grid" id="ivs-grid"></div>
+        </div>
+
+        <div class="editor__actions">
+          <button type="button" class="btn btn--primary" id="btn-save">Guardar</button>
+          <button type="button" class="btn btn--ghost btn--sm" id="btn-clear-form">IVs 0</button>
+        </div>
+      </aside>
+    </main>
+  </div>
+
+  <!-- empty-state oculto: el JS aún lo referencia -->
+  <div id="empty-state" class="hidden" aria-hidden="true"></div>
+
+  <div class="context-menu hidden" id="context-menu" role="menu">
+    <button type="button" class="context-menu__item" id="menu-unite" role="menuitem">Unir con…</button>
+    <button type="button" class="context-menu__item context-menu__item--danger" id="menu-delete" role="menuitem">Eliminar</button>
+  </div>
+
+  <div class="modal hidden" id="breed-modal" aria-hidden="true">
+    <div class="modal__backdrop" data-close-modal></div>
+    <div class="modal__panel modal__panel--wide" role="dialog" aria-labelledby="breed-title">
+      <h3 class="modal__title" id="breed-title">Nueva cría</h3>
+      <ol class="breed-steps" id="breed-steps"></ol>
+      <p class="modal__text" id="breed-summary"></p>
+      <div class="modal__ivs" id="breed-ivs"></div>
+
+      <p class="modal__label">Pesas recomendadas</p>
+      <div class="item-plan" id="breed-items"></div>
+      <p class="item-plan__why" id="breed-items-why"></p>
+
+      <p class="modal__label">Género de la cría</p>
+      <div class="gender-toggle">
+        <button type="button" class="gender-btn gender-btn--male" id="breed-male">♂ Hombre</button>
+        <button type="button" class="gender-btn gender-btn--female is-selected" id="breed-female">♀ Mujer</button>
+      </div>
+      <div class="modal__actions">
+        <button type="button" class="btn btn--ghost" data-close-modal>Cancelar</button>
+        <button type="button" class="btn btn--primary" id="breed-confirm">Crear cría</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="toast hidden" id="toast" role="status"></div>
+  <div class="pair-banner hidden" id="pair-banner">
+    Elige la pareja (género opuesto) · Esc para cancelar
+  </div>
+  <script src="firebase-config.js"></script>
+  <script src="js/firebase.js"></script>
+  <script src="js/auth-ui.js"></script>
+  <script src="data/catalog.js"></script>
+  <script src="app.js"></script>
+  <script>
+    if (window.CrianzaAuthUi) {
+      CrianzaAuthUi.mountAuthUi("#site-nav");
+    } else {
+      console.warn("No se cargó js/auth-ui.js — menú estático activo");
+      document.querySelector('[data-auth="in"]')?.addEventListener("click", () => {
+        alert("Faltan archivos de login en el hosting. Vuelve a subir crianza-netlify.zip completo.");
+      });
+    }
+  </script>
+</body>
+</html>
