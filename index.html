@@ -1,13 +1,21 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
+  <script>
+    try {
+      var __t = localStorage.getItem("crianza-theme-v1");
+      document.documentElement.setAttribute("data-theme", __t === "day" ? "day" : "night");
+    } catch (e) {
+      document.documentElement.setAttribute("data-theme", "night");
+    }
+  </script>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Crianza Pokémon · Cuaderno 8-bit</title>
-  <meta name="color-scheme" content="dark" />
+  <meta name="color-scheme" content="dark light" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=VT323&display=swap" rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Press+Start+2P&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="css/site.css?v=20261113c" />
   <link rel="stylesheet" href="styles.css?v=20261113c" />
 </head>
@@ -47,63 +55,64 @@
             </svg>
           </button>
         </div>
-        <button type="button" class="site-auth__btn site-auth__btn--primary" data-auth="in">
-          <svg class="site-auth__google" viewBox="0 0 48 48" aria-hidden="true" focusable="false"><path fill="#FFC107" d="M43.6 20.5H42V20H24v8h11.3C33.7 32.7 29.3 36 24 36c-6.6 0-12-5.4-12-12s5.4-12 12-12c3 0 5.8 1.1 7.9 3l5.7-5.7C34.2 6.1 29.4 4 24 4 12.9 4 4 12.9 4 24s8.9 20 20 20 20-8.9 20-20c0-1.2-.1-2.3-.4-3.5z"/><path fill="#FF3D00" d="M6.3 14.7l6.6 4.8C14.7 15.1 19 12 24 12c3 0 5.8 1.1 7.9 3l5.7-5.7C34.2 6.1 29.4 4 24 4 16.3 4 9.6 8.3 6.3 14.7z"/><path fill="#4CAF50" d="M24 44c5.2 0 10-2 13.6-5.2l-6.3-5.3C29.3 35.1 26.8 36 24 36c-5.3 0-9.7-3.3-11.3-8l-6.5 5C9.5 39.6 16.2 44 24 44z"/><path fill="#1976D2" d="M43.6 20.5H42V20H24v8h11.3c-.8 2.2-2.2 4.1-4 5.5l.1.1 6.3 5.3C39.2 37.3 44 32 44 24c0-1.2-.1-2.3-.4-3.5z"/></svg>
-          <span>Iniciar con Google</span>
-        </button>
       </div>
     </div>
   </header>
   <div class="app">
     <aside class="sidebar">
       <header class="sidebar__header">
-        <p class="clan-credit">Clan <strong>Cuervos Negros</strong> · <em>yoditagg</em></p>
-        <div class="brand-lockup">
-          <img class="brand-lockup__mark" src="assets/logo-clan.png" alt="Cuervos Negros" width="52" height="52" />
-          <h1 class="brand">CRIANZA<span>Cobblemon · IVs</span></h1>
-        </div>
-
         <div class="pages-panel">
           <div class="pages-panel__title">
-            <span>Páginas</span>
-            <button type="button" class="btn btn--ghost btn--sm" id="btn-new-page" title="Nueva página">
-              + Nueva
-            </button>
+            <span>Mis páginas</span>
+            <div class="pages-panel__tools">
+              <button type="button" class="btn btn--ghost btn--sm" id="btn-new-page" title="Nueva página">
+                + Nueva
+              </button>
+              <details class="page-menu" id="page-menu">
+                <summary class="btn btn--ghost btn--sm" title="Descargar o abrir archivo">
+                  Compartir
+                </summary>
+                <div class="page-menu__list" role="menu">
+                  <button type="button" class="page-menu__item" id="btn-export-page" role="menuitem">
+                    Descargar archivo
+                  </button>
+                  <button type="button" class="page-menu__item" id="btn-import-page" role="menuitem">
+                    Abrir archivo
+                  </button>
+                </div>
+              </details>
+              <input class="visually-hidden" type="file" id="page-import-file" accept=".json,application/json" />
+            </div>
           </div>
-          <div class="pages-list" id="pages-list" role="tablist" aria-label="Páginas del cuaderno"></div>
-          <div class="pages-actions">
-            <button type="button" class="btn btn--ghost btn--sm" id="btn-export-page" title="Exportar la página actual para compartir">
-              Exportar página
-            </button>
-            <button type="button" class="btn btn--ghost btn--sm" id="btn-import-page" title="Importar una página compartida">
-              Importar página
-            </button>
-            <button type="button" class="btn btn--ghost btn--sm" id="btn-publish-community" title="Subir la página actual a la comunidad (requiere Google)">
-              Subir a comunidad
-            </button>
-            <input class="visually-hidden" type="file" id="page-import-file" accept=".json,application/json" />
+          <div class="page-select-row">
+            <label class="page-select-wrap">
+              <span class="visually-hidden">Página de crianza</span>
+              <select id="page-select" class="page-select" aria-label="Páginas del cuaderno"></select>
+            </label>
+            <button type="button" class="btn btn--ghost btn--icon" id="btn-rename-page" title="Renombrar página" aria-label="Renombrar página">✎</button>
+            <button type="button" class="btn btn--ghost btn--icon" id="btn-delete-page" title="Eliminar página" aria-label="Eliminar página">×</button>
           </div>
         </div>
 
-        <div class="egg-groups">
-          <div class="egg-groups__title">
-            <span>Grupos</span>
-            <a
-              class="egg-groups__link"
-              href="https://www.pokexperto.net/index2.php?seccion=mecanica/gruposhuevo"
-              target="_blank"
-              rel="noopener noreferrer"
-              title="Ver en Pokéxperto"
-            >info</a>
-          </div>
-          <div class="egg-chips" id="egg-chips" role="group" aria-label="Filtrar por grupo huevo"></div>
+        <div class="poke-filters">
+          <label class="search">
+            <span class="visually-hidden">Buscar Pokémon</span>
+            <input type="search" id="search" placeholder="Buscar Pokémon…" autocomplete="off" />
+          </label>
+          <label class="egg-select-wrap">
+            <span class="egg-select-wrap__label">
+              Grupo
+              <a
+                class="egg-groups__link"
+                href="https://www.pokexperto.net/index2.php?seccion=mecanica/gruposhuevo"
+                target="_blank"
+                rel="noopener noreferrer"
+                title="Ver grupos en Pokéxperto"
+              >?</a>
+            </span>
+            <select id="egg-group-select" class="egg-select" aria-label="Filtrar por grupo huevo"></select>
+          </label>
         </div>
-
-        <label class="search">
-          <span class="visually-hidden">Buscar Pokémon</span>
-          <input type="search" id="search" placeholder="Buscar nombre o nº…" autocomplete="off" />
-        </label>
-        <p class="sidebar-hint">Arrastra la lista para ver más · O escribe arriba</p>
       </header>
       <div class="pokemon-list" id="pokemon-list" aria-live="polite">
         <p class="list-status" id="list-status">Cargando…</p>
@@ -119,7 +128,7 @@
           <div class="notebook__titles">
             <h2 class="section-title" id="page-title">Mi cuaderno</h2>
             <p class="notebook__hint" id="tool-hint">
-              Clic+arrastra el fondo = mover mesa · Unir · Lápiz
+              Arrastra Pokémon aquí · Zoom −/+ · Clic derecho para unir
             </p>
           </div>
           <div class="toolbar">
@@ -135,6 +144,15 @@
               </button>
               <button type="button" class="tool-btn" id="tool-eraser" data-tool="eraser" title="Borrar trazo">
                 Borrar
+              </button>
+            </div>
+            <div class="tool-group zoom-group" role="group" aria-label="Zoom del cuaderno">
+              <button type="button" class="tool-btn tool-btn--icon" id="btn-zoom-out" title="Alejar (Ctrl + rueda)" aria-label="Alejar">
+                −
+              </button>
+              <output class="zoom-label" id="zoom-label" title="Ctrl + rueda del ratón">100%</output>
+              <button type="button" class="tool-btn tool-btn--icon" id="btn-zoom-in" title="Acercar (Ctrl + rueda)" aria-label="Acercar">
+                +
               </button>
             </div>
             <output class="breed-total" id="breed-total" aria-live="polite">Total crianza: $0</output>
@@ -331,17 +349,13 @@
   </div>
   <script src="firebase-config.js?v=20261113c"></script>
   <script src="js/firebase.js?v=20261113c"></script>
+  <script src="js/theme.js?v=20261113c"></script>
   <script src="js/auth-ui.js?v=20261113c"></script>
   <script src="data/catalog.js?v=20261113c"></script>
   <script src="app.js?v=20261113c"></script>
   <script>
     if (window.CrianzaAuthUi) {
       CrianzaAuthUi.mountAuthUi("#site-nav");
-    } else {
-      console.warn("No se cargó js/auth-ui.js — menú estático activo");
-      document.querySelector('[data-auth="in"]')?.addEventListener("click", () => {
-        alert("Faltan archivos de login en el hosting. Vuelve a subir crianza-netlify.zip completo.");
-      });
     }
   </script>
 </body>

@@ -40,7 +40,7 @@
       }
     }
     if (!window.__crianzaUser) {
-      alert("Inicia sesión con Google para continuar.");
+      alert("La publicación y el seguimiento no están disponibles sin cuenta.");
       return false;
     }
     return true;

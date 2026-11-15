@@ -150,7 +150,15 @@
     if (!user) {
       gate.classList.remove("d-none");
       panel.classList.add("d-none");
-      gate.textContent = "Inicia sesión con una cuenta admin.";
+      gate.innerHTML =
+        'Panel privado. <button type="button" class="btn btn-sm btn-warning ms-2" id="admin-login">Entrar como admin</button>';
+      gate.querySelector("#admin-login")?.addEventListener("click", async () => {
+        try {
+          await window.CrianzaFirebase.signInWithGoogle();
+        } catch (err) {
+          alert(err.message || "No se pudo entrar");
+        }
+      });
       return;
     }
     if (!isAdmin(user, profile)) {

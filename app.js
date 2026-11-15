@@ -43,11 +43,14 @@
   };
   const API = "https://pokeapi.co/api/v2";
   const GRID = 8;
-  const CARD_W = 150;
-  const CARD_H = 230;
+  const CARD_W = 188;
+  const CARD_H = 196;
   const SHEET_W = 5000;
   const SHEET_H = 5000;
   const DRAG_THRESHOLD = 6;
+  const ZOOM_MIN = 0.25;
+  const ZOOM_MAX = 1.5;
+  const ZOOM_STEP = 0.1;
 
   /* Orden como en Pokéxperto */
   const EGG_GROUPS = [
@@ -92,7 +95,10 @@
     list: document.getElementById("pokemon-list"),
     listStatus: document.getElementById("list-status"),
     search: document.getElementById("search"),
-    eggChips: document.getElementById("egg-chips"),
+    eggSelect: document.getElementById("egg-group-select"),
+    btnZoomIn: document.getElementById("btn-zoom-in"),
+    btnZoomOut: document.getElementById("btn-zoom-out"),
+    zoomLabel: document.getElementById("zoom-label"),
     empty: document.getElementById("empty-state"),
     editor: document.getElementById("editor"),
     spriteFrame: document.getElementById("sprite-frame"),
@@ -113,6 +119,9 @@
     btnClearShots: document.getElementById("btn-clear-shots"),
     btnNewPage: document.getElementById("btn-new-page"),
     pagesList: document.getElementById("pages-list"),
+    pageSelect: document.getElementById("page-select"),
+    btnRenamePage: document.getElementById("btn-rename-page"),
+    btnDeletePage: document.getElementById("btn-delete-page"),
     btnExportPage: document.getElementById("btn-export-page"),
     btnImportPage: document.getElementById("btn-import-page"),
     btnPublishCommunity: document.getElementById("btn-publish-community"),
@@ -170,6 +179,7 @@
 
   let pokemonCatalog = [];
   let selectedEggGroup = null;
+  let sheetZoom = 1;
   let selected = null;
   let gender = null;
   let nature = "";
@@ -441,54 +451,23 @@
   }
 
   function renderPages() {
-    if (!els.pagesList) return;
-    els.pagesList.innerHTML = "";
+    if (!els.pageSelect) return;
+    const prev = store.activeId;
+    els.pageSelect.innerHTML = "";
     for (const page of store.pages) {
-      const row = document.createElement("div");
-      row.className =
-        "page-tab" + (page.id === store.activeId ? " is-active" : "");
-      row.setAttribute("role", "tab");
-      row.setAttribute("aria-selected", page.id === store.activeId ? "true" : "false");
-
-      const info = document.createElement("div");
-      info.className = "page-tab__info";
-
-      const nameBtn = document.createElement("button");
-      nameBtn.type = "button";
-      nameBtn.className = "page-tab__name";
-      nameBtn.textContent = page.name;
-      nameBtn.title = page.name;
-      nameBtn.addEventListener("click", () => switchPage(page.id));
-
-      const meta = document.createElement("span");
-      meta.className = "page-tab__meta";
-      meta.textContent =
-        `${page.saved.length} Pokémon · ${page.pasted.length} fotos · ${page.textBoxes.length} notas`;
-      meta.title = meta.textContent;
-      info.append(nameBtn, meta);
-
-      const renameBtn = document.createElement("button");
-      renameBtn.type = "button";
-      renameBtn.className = "page-tab__rename";
-      renameBtn.title = "Renombrar";
-      renameBtn.textContent = "✎";
-      renameBtn.addEventListener("click", (e) => {
-        e.stopPropagation();
-        renamePage(page.id);
-      });
-
-      const delBtn = document.createElement("button");
-      delBtn.type = "button";
-      delBtn.className = "page-tab__delete";
-      delBtn.title = "Eliminar página";
-      delBtn.textContent = "×";
-      delBtn.addEventListener("click", (e) => {
-        e.stopPropagation();
-        deletePage(page.id);
-      });
-
-      row.append(info, renameBtn, delBtn);
-      els.pagesList.appendChild(row);
+      const opt = document.createElement("option");
+      opt.value = page.id;
+      const meta = `${page.saved.length} Pokémon`;
+      opt.textContent = `${page.name} · ${meta}`;
+      opt.title = `${page.name} · ${page.saved.length} Pokémon · ${page.pasted.length} fotos · ${page.textBoxes.length} notas`;
+      els.pageSelect.appendChild(opt);
+    }
+    els.pageSelect.value = prev;
+    if (els.pageSelect.value !== prev && store.pages[0]) {
+      els.pageSelect.value = store.pages[0].id;
+    }
+    if (els.btnDeletePage) {
+      els.btnDeletePage.disabled = store.pages.length <= 1;
     }
     syncPageTitle();
   }
@@ -531,22 +510,7 @@
   }
 
   function publishActivePageToCommunity() {
-    if (!window.isFirebaseConfigured || !window.isFirebaseConfigured()) {
-      showToast("Configura firebase-config.js para publicar");
-      return;
-    }
-    if (!window.__crianzaUser) {
-      showToast("Inicia sesión con Google para subir");
-      return;
-    }
-    try {
-      const payload = buildActivePagePayload();
-      sessionStorage.setItem("crianza-publish-payload", JSON.stringify(payload));
-      location.href = "comunidad.html#publish";
-    } catch (err) {
-      console.error(err);
-      showToast("No se pudo preparar la publicación");
-    }
+    showToast("La publicación en comunidad no está disponible");
   }
 
   function importCommunityPayload(data) {
@@ -779,6 +743,7 @@
     renderSaved();
     /* No llamar persistDrawing aquí: el lienzo puede estar vacío mientras carga. */
     persist();
+    renderPages();
     showToast(`Página: ${getActivePage().name}`);
   }
 
@@ -809,6 +774,7 @@
     drawCtx.clearRect(0, 0, SHEET_W, SHEET_H);
     renderSaved();
     persist();
+    renderPages();
     showToast(`Página creada: ${page.name}`);
   }
 
@@ -1034,6 +1000,10 @@
     );
   }
 
+  function viewToSheet(n) {
+    return n / sheetZoom;
+  }
+
   function companionBounds() {
     const size = 80;
     const pad = 8;
@@ -1042,12 +1012,12 @@
       return { minX: pad, maxX: 400, y: 200, size };
     }
     /* Solo el borde inferior visible del cuaderno (eje X). */
-    const minX = scroll.scrollLeft + pad;
+    const minX = viewToSheet(scroll.scrollLeft) + pad;
     const maxX = Math.max(
       minX + size,
-      scroll.scrollLeft + scroll.clientWidth - size - pad
+      viewToSheet(scroll.scrollLeft + scroll.clientWidth) - size - pad
     );
-    const y = scroll.scrollTop + scroll.clientHeight - size - 4;
+    const y = viewToSheet(scroll.scrollTop + scroll.clientHeight) - size - 4;
     return { minX, maxX, y, size };
   }
 
@@ -1256,15 +1226,15 @@
     const scroll = els.sheetScroll;
     const size = 84;
     const pad = 24;
-    const minX = scroll.scrollLeft + pad;
+    const minX = viewToSheet(scroll.scrollLeft) + pad;
     const maxX = Math.max(
       minX + size,
-      scroll.scrollLeft + scroll.clientWidth - size - pad
+      viewToSheet(scroll.scrollLeft + scroll.clientWidth) - size - pad
     );
-    const minY = scroll.scrollTop + pad;
+    const minY = viewToSheet(scroll.scrollTop) + pad;
     const maxY = Math.max(
       minY + size,
-      scroll.scrollTop + scroll.clientHeight - size - 90
+      viewToSheet(scroll.scrollTop + scroll.clientHeight) - size - 90
     );
     const x = minX + Math.random() * Math.max(8, maxX - minX);
     const y = minY + Math.random() * Math.max(8, maxY - minY);
@@ -1759,10 +1729,10 @@
     els.sheetScroll?.classList.toggle("is-text-tool", tool === "text");
 
     const hints = {
-      move: "Mesa · Unir · Ctrl+Z deshacer · Ctrl+Y rehacer · Ctrl+V",
-      pencil: "Modo lápiz: dibuja en la hoja",
-      text: "Modo texto: clic en la hoja para añadir una casilla",
-      eraser: "Modo borrar: pasa sobre la tinta",
+      move: "Arrastra Pokémon aquí · Zoom −/+ · Clic derecho para unir",
+      pencil: "Dibuja en el cuaderno",
+      text: "Clic en el cuaderno para escribir una nota",
+      eraser: "Pasa sobre el dibujo para borrar",
     };
     els.toolHint.textContent = hints[tool];
     hideMenu();
@@ -1772,36 +1742,109 @@
     return pokemonCatalog.filter((p) => p.eggGroups.includes(api)).length;
   }
 
-  function renderEggChips() {
-    els.eggChips.innerHTML = "";
+  function renderEggSelect() {
+    if (!els.eggSelect) return;
+    const prev = selectedEggGroup || "";
+    els.eggSelect.innerHTML = "";
 
-    const all = document.createElement("button");
-    all.type = "button";
-    all.className = "egg-chip" + (selectedEggGroup === null ? " is-active" : "");
-    all.innerHTML = `Todos<span class="egg-chip__count">${pokemonCatalog.length || ""}</span>`;
-    all.addEventListener("click", () => {
-      selectedEggGroup = null;
-      renderEggChips();
-      renderList(els.search.value);
-    });
-    els.eggChips.appendChild(all);
+    const all = document.createElement("option");
+    all.value = "";
+    all.textContent = `Todos (${pokemonCatalog.length || 0})`;
+    els.eggSelect.appendChild(all);
 
     for (const group of EGG_GROUPS) {
       const count = countInEggGroup(group.api);
-      const btn = document.createElement("button");
-      btn.type = "button";
-      btn.className =
-        "egg-chip" + (selectedEggGroup === group.api ? " is-active" : "");
-      btn.innerHTML = `${group.label}<span class="egg-chip__count">${count || ""}</span>`;
-      btn.title = `${group.label} (${count} Pokémon)`;
-      btn.addEventListener("click", () => {
-        selectedEggGroup =
-          selectedEggGroup === group.api ? null : group.api;
-        renderEggChips();
-        renderList(els.search.value);
-      });
-      els.eggChips.appendChild(btn);
+      const opt = document.createElement("option");
+      opt.value = group.api;
+      opt.textContent = `${group.label} (${count})`;
+      els.eggSelect.appendChild(opt);
     }
+
+    els.eggSelect.value = prev;
+    if (els.eggSelect.value !== prev) {
+      selectedEggGroup = null;
+      els.eggSelect.value = "";
+    }
+  }
+
+  function updateZoomLabel() {
+    if (els.zoomLabel) {
+      els.zoomLabel.textContent = `${Math.round(sheetZoom * 100)}%`;
+    }
+    if (els.btnZoomOut) els.btnZoomOut.disabled = sheetZoom <= ZOOM_MIN + 0.001;
+    if (els.btnZoomIn) els.btnZoomIn.disabled = sheetZoom >= ZOOM_MAX - 0.001;
+  }
+
+  function coverSheetViewport() {
+    if (!els.sheet || !els.sheetScroll) return;
+    const scroll = els.sheetScroll;
+    const w = Math.max(
+      SHEET_W,
+      Math.ceil(scroll.clientWidth / sheetZoom) + 4
+    );
+    const h = Math.max(
+      SHEET_H,
+      Math.ceil(scroll.clientHeight / sheetZoom) + 4
+    );
+    els.sheet.style.width = `${w}px`;
+    els.sheet.style.height = `${h}px`;
+  }
+
+  function setSheetZoom(next, { anchorClientX, anchorClientY } = {}) {
+    if (!els.sheet || !els.sheetScroll) return;
+    const scroll = els.sheetScroll;
+    const prev = sheetZoom;
+    const clamped = Math.round(
+      Math.min(ZOOM_MAX, Math.max(ZOOM_MIN, next)) / ZOOM_STEP
+    ) * ZOOM_STEP;
+    const zoom = Math.round(clamped * 100) / 100;
+    if (Math.abs(zoom - prev) < 0.001) {
+      updateZoomLabel();
+      return;
+    }
+
+    let sheetX;
+    let sheetY;
+    if (
+      Number.isFinite(anchorClientX) &&
+      Number.isFinite(anchorClientY)
+    ) {
+      const rect = scroll.getBoundingClientRect();
+      sheetX = viewToSheet(
+        scroll.scrollLeft + (anchorClientX - rect.left)
+      );
+      sheetY = viewToSheet(
+        scroll.scrollTop + (anchorClientY - rect.top)
+      );
+    } else {
+      sheetX = viewToSheet(scroll.scrollLeft + scroll.clientWidth / 2);
+      sheetY = viewToSheet(scroll.scrollTop + scroll.clientHeight / 2);
+    }
+
+    sheetZoom = zoom;
+    els.sheet.style.zoom = String(sheetZoom);
+    coverSheetViewport();
+    updateZoomLabel();
+
+    if (
+      Number.isFinite(anchorClientX) &&
+      Number.isFinite(anchorClientY)
+    ) {
+      const rect = scroll.getBoundingClientRect();
+      scroll.scrollLeft =
+        sheetX * sheetZoom - (anchorClientX - rect.left);
+      scroll.scrollTop =
+        sheetY * sheetZoom - (anchorClientY - rect.top);
+    } else {
+      scroll.scrollLeft = sheetX * sheetZoom - scroll.clientWidth / 2;
+      scroll.scrollTop = sheetY * sheetZoom - scroll.clientHeight / 2;
+    }
+
+    if (!companionState.hidden) renderCompanion();
+  }
+
+  function nudgeZoom(delta, anchor) {
+    setSheetZoom(sheetZoom + delta, anchor);
   }
 
   function renderList(filter = "") {
@@ -2641,8 +2684,10 @@
         ${entry.ready ? '<span class="saved-card__ready-tag">Listo</span>' : ""}
         <button type="button" class="saved-card__delete" aria-label="Eliminar" data-delete="${entry.uid}">×</button>
         <img class="saved-card__sprite" src="${escapeHtml(entry.sprite)}" alt="${escapeHtml(entry.name)}" loading="lazy" />
-        <h3 class="saved-card__name">${escapeHtml(entry.name)}</h3>
-        <p class="saved-card__gender">${genderLabel(entry.gender)}</p>
+        <div class="saved-card__head">
+          <h3 class="saved-card__name">${escapeHtml(entry.name)}</h3>
+          <p class="saved-card__gender">${genderLabel(entry.gender)}</p>
+        </div>
         ${natureHtml}
         ${parentsHtml}
         ${heldHtml}
@@ -2869,10 +2914,12 @@
     if (!drag.moved) return;
 
     const sheetRect = els.sheet.getBoundingClientRect();
+    const scaleX = sheetRect.width / SHEET_W || 1;
+    const scaleY = sheetRect.height / SHEET_H || 1;
     const maxW = drag.maxW || CARD_W;
     const maxH = drag.maxH || CARD_H;
-    let x = e.clientX - sheetRect.left - drag.offsetX;
-    let y = e.clientY - sheetRect.top - drag.offsetY;
+    let x = (e.clientX - sheetRect.left - drag.offsetX) / scaleX;
+    let y = (e.clientY - sheetRect.top - drag.offsetY) / scaleY;
     x = Math.max(0, Math.min(SHEET_W - maxW, x));
     y = Math.max(0, Math.min(SHEET_H - maxH, y));
 
@@ -3217,6 +3264,25 @@
     }
 
     els.search.addEventListener("input", () => renderList(els.search.value));
+    els.eggSelect?.addEventListener("change", () => {
+      selectedEggGroup = els.eggSelect.value || null;
+      renderList(els.search.value);
+    });
+    els.btnZoomIn?.addEventListener("click", () => nudgeZoom(ZOOM_STEP));
+    els.btnZoomOut?.addEventListener("click", () => nudgeZoom(-ZOOM_STEP));
+    els.sheetScroll?.addEventListener(
+      "wheel",
+      (e) => {
+        if (!(e.ctrlKey || e.metaKey)) return;
+        e.preventDefault();
+        const delta = e.deltaY > 0 ? -ZOOM_STEP : ZOOM_STEP;
+        nudgeZoom(delta, {
+          anchorClientX: e.clientX,
+          anchorClientY: e.clientY,
+        });
+      },
+      { passive: false }
+    );
     els.btnMale.addEventListener("click", () => setGender("male"));
     els.btnFemale.addEventListener("click", () => setGender("female"));
     els.nature?.addEventListener("change", () => {
@@ -3229,9 +3295,36 @@
     els.btnClearInk?.addEventListener("click", onClearInkClick);
     els.btnClearShots?.addEventListener("click", clearPastes);
     els.btnNewPage?.addEventListener("click", addPage);
-    els.btnExportPage?.addEventListener("click", exportActivePage);
-    els.btnImportPage?.addEventListener("click", () => els.pageImportFile?.click());
-    els.btnPublishCommunity?.addEventListener("click", publishActivePageToCommunity);
+    els.pageSelect?.addEventListener("change", () => {
+      const id = els.pageSelect.value;
+      if (id) switchPage(id);
+    });
+    els.btnRenamePage?.addEventListener("click", () => {
+      renamePage(store.activeId);
+    });
+    els.btnDeletePage?.addEventListener("click", () => {
+      deletePage(store.activeId);
+    });
+    const pageMenu = document.getElementById("page-menu");
+    const closePageMenu = () => {
+      if (pageMenu) pageMenu.open = false;
+    };
+    els.btnExportPage?.addEventListener("click", () => {
+      closePageMenu();
+      exportActivePage();
+    });
+    els.btnImportPage?.addEventListener("click", () => {
+      closePageMenu();
+      els.pageImportFile?.click();
+    });
+    els.btnPublishCommunity?.addEventListener("click", () => {
+      closePageMenu();
+      publishActivePageToCommunity();
+    });
+    document.addEventListener("pointerdown", (e) => {
+      if (!pageMenu?.open) return;
+      if (!pageMenu.contains(e.target)) pageMenu.open = false;
+    });
     const bindNavTools = () => {
       els.btnUpdates = document.getElementById("btn-updates");
       els.btnCompanion = document.getElementById("btn-companion");
@@ -3281,6 +3374,7 @@
       e.stopPropagation();
     });
     window.addEventListener("resize", () => {
+      coverSheetViewport();
       if (!companionState.hidden) renderCompanion();
     });
     els.sheetScroll?.addEventListener(
@@ -3443,7 +3537,9 @@
     fillNatureSelect();
     buildIvsUi();
     renderPages();
-    renderEggChips();
+    renderEggSelect();
+    updateZoomLabel();
+    coverSheetViewport();
     setTool("move");
     loadDrawingFromPage();
     renderSaved();
@@ -3486,7 +3582,7 @@
       }
       await fetchCatalog();
       els.listStatus?.remove();
-      renderEggChips();
+      renderEggSelect();
       renderList();
       setCompanionSprite(companionState.id);
     } catch (err) {
