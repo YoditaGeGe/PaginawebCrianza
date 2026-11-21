@@ -124,17 +124,6 @@
     btnDeletePage: document.getElementById("btn-delete-page"),
     btnExportPage: document.getElementById("btn-export-page"),
     btnImportPage: document.getElementById("btn-import-page"),
-    btnPasteCaja: document.getElementById("btn-paste-caja"),
-    btnReadBox: document.getElementById("btn-read-box"),
-    boxFile: document.getElementById("box-file"),
-    boxModal: document.getElementById("box-modal"),
-    boxDrop: document.getElementById("box-drop"),
-    boxSpecies: document.getElementById("box-species"),
-    boxSpeciesList: document.getElementById("box-species-list"),
-    boxPerfect: document.getElementById("box-perfect"),
-    boxStatus: document.getElementById("box-status"),
-    boxPreview: document.getElementById("box-preview"),
-    boxConfirm: document.getElementById("box-confirm"),
     btnPublishCommunity: document.getElementById("btn-publish-community"),
     btnUpdates: document.getElementById("btn-updates"),
     btnCompanion: document.getElementById("btn-companion"),
@@ -142,6 +131,7 @@
     footerLogo: document.getElementById("site-footer-logo"),
     pageTitle: document.getElementById("page-title"),
     sheetScroll: document.getElementById("sheet-scroll"),
+    sheetZoom: document.getElementById("sheet-zoom"),
     sheet: document.getElementById("sheet"),
     canvas: document.getElementById("saved-canvas"),
     draw: document.getElementById("draw-layer"),
@@ -157,8 +147,6 @@
     tagFilter: document.getElementById("tag-filter"),
     pairBanner: document.getElementById("pair-banner"),
     breedModal: document.getElementById("breed-modal"),
-    breedSteps: document.getElementById("breed-steps"),
-    breedSummary: document.getElementById("breed-summary"),
     breedIvs: document.getElementById("breed-ivs"),
     breedItems: document.getElementById("breed-items"),
     breedItemsWhy: document.getElementById("breed-items-why"),
@@ -290,15 +278,6 @@
 
   function emptyIvs() {
     return { hp: 0, atk: 0, def: 0, spa: 0, spd: 0, spe: 0 };
-  }
-
-  function updateBreedCostPreview() {
-    if (!pendingBreed) return;
-    els.breedSummary.querySelector("#breed-cost").textContent = formatMoney(
-      calculateBreedCost(pendingBreed.itemPlan, babyGender)
-    );
-    els.breedSummary.querySelector("#breed-cost-details").textContent =
-      babyGender === "male" ? " + cambio de género × $500" : "";
   }
 
   function makeId() {
@@ -808,26 +787,6 @@
     if (added) parts.push(added === 1 ? "1 Pokémon nuevo" : `${added} Pokémon nuevos`);
     if (updated) parts.push(updated === 1 ? "1 actualizado" : `${updated} actualizados`);
     showToast(parts.join(" · ") || `Página "${last.name}" lista`);
-  }
-
-  async function pasteCajaFromClipboard() {
-    let text = "";
-    try {
-      text = (await navigator.clipboard.readText()).trim();
-    } catch {
-      showToast("No pude leer el portapapeles. Copia la caja en el juego y pulsa Ctrl+V.");
-      return;
-    }
-    if (!text.startsWith("{") || !text.includes("crianza-pokemon-page")) {
-      showToast("Primero copia la caja en el PC, con el botón Copiar caja o la tecla K.");
-      return;
-    }
-    try {
-      applyCrianzaDocument(JSON.parse(text));
-    } catch (error) {
-      console.error("No se pudo pegar la caja", error);
-      showToast(error instanceof SyntaxError ? "El portapapeles no contiene JSON válido" : error.message);
-    }
   }
 
   async function importPageFile(file) {
@@ -1919,8 +1878,16 @@
       SHEET_H,
       Math.ceil(scroll.clientHeight / sheetZoom) + 4
     );
+    els.sheet.style.zoom = "";
     els.sheet.style.width = `${w}px`;
     els.sheet.style.height = `${h}px`;
+    els.sheet.style.transformOrigin = "0 0";
+    els.sheet.style.transform =
+      Math.abs(sheetZoom - 1) < 0.001 ? "none" : `scale(${sheetZoom})`;
+    if (els.sheetZoom) {
+      els.sheetZoom.style.width = `${Math.ceil(w * sheetZoom)}px`;
+      els.sheetZoom.style.height = `${Math.ceil(h * sheetZoom)}px`;
+    }
   }
 
   function setSheetZoom(next, { anchorClientX, anchorClientY } = {}) {
@@ -1955,7 +1922,6 @@
     }
 
     sheetZoom = zoom;
-    els.sheet.style.zoom = String(sheetZoom);
     coverSheetViewport();
     updateZoomLabel();
 
@@ -2042,10 +2008,10 @@
     const totalH = pad * 2 + rows * rowH + Math.max(0, rows - 1) * gap;
     const viewTop = els.list.scrollTop;
     const viewH = els.list.clientHeight || 480;
-    const startRow = Math.max(0, Math.floor((viewTop - pad) / stride) - 1);
+    const startRow = Math.max(0, Math.floor((viewTop - pad) / stride));
     const endRow = Math.min(
       rows,
-      Math.ceil((viewTop + viewH - pad) / stride) + 2
+      Math.ceil((viewTop + viewH - pad) / stride) + 1
     );
     const start = startRow * cols;
     const end = Math.min(listView.length, endRow * cols);
@@ -2180,12 +2146,37 @@
     listPan = null;
   }
 
+  function sheetScale() {
+    const rect = els.sheet.getBoundingClientRect();
+    const width = els.sheet.offsetWidth || rect.width || 1;
+    const height = els.sheet.offsetHeight || rect.height || 1;
+    return {
+      rect,
+      x: rect.width / width || sheetZoom || 1,
+      y: rect.height / height || sheetZoom || 1,
+    };
+  }
+
+  function clientToSheet(clientX, clientY) {
+    const scale = sheetScale();
+    return {
+      x: (clientX - scale.rect.left) / scale.x,
+      y: (clientY - scale.rect.top) / scale.y,
+    };
+  }
+
+  function grabOnSheet(clientX, clientY, el) {
+    const point = clientToSheet(clientX, clientY);
+    return {
+      x: point.x - (parseFloat(el.style.left) || 0),
+      y: point.y - (parseFloat(el.style.top) || 0),
+    };
+  }
+
   function sheetCoordsFromClient(clientX, clientY) {
-    const sheetRect = els.sheet.getBoundingClientRect();
-    const scaleX = SHEET_W / sheetRect.width;
-    const scaleY = SHEET_H / sheetRect.height;
-    let x = (clientX - sheetRect.left) * scaleX - CARD_W / 2;
-    let y = (clientY - sheetRect.top) * scaleY - CARD_H / 2;
+    const point = clientToSheet(clientX, clientY);
+    let x = point.x - CARD_W / 2;
+    let y = point.y - CARD_H / 2;
     x = snap(Math.max(0, Math.min(SHEET_W - CARD_W, x)));
     y = snap(Math.max(0, Math.min(SHEET_H - CARD_H, y)));
     return { x, y };
@@ -2426,42 +2417,42 @@
   const POWER_ITEMS = {
     hp: {
       id: "weight",
-      icon: "fitness_center",
+      sprite: "img/items/power-weight.png",
       name: "Pesa Recia",
       short: "Pesa HP",
       statLabel: "HP",
     },
     atk: {
       id: "bracer",
-      icon: "swords",
+      sprite: "img/items/power-bracer.png",
       name: "Brazal Recio",
       short: "Brazal Atk",
       statLabel: "Ataque",
     },
     def: {
       id: "belt",
-      icon: "shield",
+      sprite: "img/items/power-belt.png",
       name: "Cinto Recio",
       short: "Cinto Def",
       statLabel: "Defensa",
     },
     spa: {
       id: "lens",
-      icon: "visibility",
+      sprite: "img/items/power-lens.png",
       name: "Lente Recia",
       short: "Lente SpA",
       statLabel: "At. Esp.",
     },
     spd: {
       id: "band",
-      icon: "health_and_safety",
+      sprite: "img/items/power-band.png",
       name: "Banda Recia",
       short: "Banda SpD",
       statLabel: "Def. Esp.",
     },
     spe: {
       id: "anklet",
-      icon: "directions_run",
+      sprite: "img/items/power-anklet.png",
       name: "Franja Recia",
       short: "Franja Spe",
       statLabel: "Velocidad",
@@ -2470,11 +2461,17 @@
 
   const NONE_ITEM = {
     id: "none",
-    icon: "block",
     name: "Ninguno",
     short: "Sin pesa",
     detail: "Sin objeto",
   };
+
+  function powerItemByLabel(label) {
+    if (!label) return null;
+    return Object.values(POWER_ITEMS).find(
+      (item) => item.short === label || item.name === label
+    ) || null;
+  }
 
   function perfectKeys(poke) {
     return IV_STATS.filter((s) => (poke.ivs[s.key] ?? 0) === 31).map(
@@ -2646,10 +2643,9 @@
   function itemCardHtml(side, poke, item) {
     const symbol = side === "male" ? "♂" : "♀";
     const detail = item.detail || item.short || "";
-    const iconName = item.icon || "block";
-    const statAttr = item.key ? ` data-stat="${item.key}"` : "";
-    const noneClass = item.id === "none" || !item.icon ? " item-icon--none" : "";
-    const iconHtml = `<span class="item-icon material-symbols-outlined${noneClass}"${statAttr} aria-hidden="true">${iconName}</span>`;
+    const iconHtml = item.sprite
+      ? `<img class="item-icon" src="${item.sprite}" alt="${escapeHtml(item.name)}" width="40" height="40" draggable="false" />`
+      : `<span class="item-icon item-icon--none" aria-hidden="true"></span>`;
 
     return `
       <div class="item-card" data-side="${side}">
@@ -2805,6 +2801,7 @@
     });
     el.setPointerCapture(e.pointerId);
 
+    const grab = grabOnSheet(e.clientX, e.clientY, el);
     drag = {
       kind: "paste",
       uid: shot.uid,
@@ -2813,8 +2810,8 @@
       startX: e.clientX,
       startY: e.clientY,
       moved: false,
-      offsetX: e.clientX - el.getBoundingClientRect().left,
-      offsetY: e.clientY - el.getBoundingClientRect().top,
+      grabX: grab.x,
+      grabY: grab.y,
       maxW: shot.width || 320,
       maxH: shot.height || 240,
     };
@@ -2893,10 +2890,19 @@
       const natureHtml = entry.nature
         ? `<p class="saved-card__parents">${escapeHtml(entry.nature)}</p>`
         : "";
-      const heldHtml =
-        entry.heldPlan
-          ? `<p class="saved-card__parents">♂ ${escapeHtml(entry.heldPlan.male)} · ♀ ${escapeHtml(entry.heldPlan.female)}</p>`
-          : "";
+      const heldHtml = entry.heldPlan
+        ? `<div class="saved-card__items">${["male", "female"]
+            .map((side) => {
+              const label = entry.heldPlan[side] || "";
+              const item = powerItemByLabel(label);
+              const symbol = side === "male" ? "♂" : "♀";
+              if (!item) {
+                return `<span class="saved-card__item saved-card__item--none" title="${symbol} Sin pesa">${symbol}</span>`;
+              }
+              return `<img class="saved-card__item" src="${item.sprite}" alt="${escapeHtml(symbol + " " + item.short)}" title="${escapeHtml(symbol + " " + item.name)}" width="28" height="28" draggable="false" />`;
+            })
+            .join("")}</div>`
+        : "";
       const tagsHtml = perfectTags.length
         ? `<div class="saved-card__line-tags">${perfectTags
             .map((key) => {
@@ -3033,6 +3039,7 @@
     e.preventDefault();
     e.stopPropagation();
     box.setPointerCapture(e.pointerId);
+    const grab = grabOnSheet(e.clientX, e.clientY, box);
     drag = {
       kind: "text",
       uid: textBox.uid,
@@ -3041,8 +3048,8 @@
       startX: e.clientX,
       startY: e.clientY,
       moved: false,
-      offsetX: e.clientX - box.getBoundingClientRect().left,
-      offsetY: e.clientY - box.getBoundingClientRect().top,
+      grabX: grab.x,
+      grabY: grab.y,
       maxW: textBox.width || 240,
       maxH: box.offsetHeight || 80,
     };
@@ -3064,6 +3071,7 @@
     e.stopPropagation();
     card.setPointerCapture(e.pointerId);
 
+    const grab = grabOnSheet(e.clientX, e.clientY, card);
     drag = {
       kind: "card",
       uid: entry.uid,
@@ -3072,8 +3080,8 @@
       startX: e.clientX,
       startY: e.clientY,
       moved: false,
-      offsetX: e.clientX - card.getBoundingClientRect().left,
-      offsetY: e.clientY - card.getBoundingClientRect().top,
+      grabX: grab.x,
+      grabY: grab.y,
       maxW: CARD_W,
       maxH: CARD_H,
     };
@@ -3140,13 +3148,11 @@
     }
     if (!drag.moved) return;
 
-    const sheetRect = els.sheet.getBoundingClientRect();
-    const scaleX = sheetRect.width / SHEET_W || 1;
-    const scaleY = sheetRect.height / SHEET_H || 1;
+    const point = clientToSheet(e.clientX, e.clientY);
     const maxW = drag.maxW || CARD_W;
     const maxH = drag.maxH || CARD_H;
-    let x = (e.clientX - sheetRect.left - drag.offsetX) / scaleX;
-    let y = (e.clientY - sheetRect.top - drag.offsetY) / scaleY;
+    let x = point.x - (drag.grabX || 0);
+    let y = point.y - (drag.grabY || 0);
     x = Math.max(0, Math.min(SHEET_W - maxW, x));
     y = Math.max(0, Math.min(SHEET_H - maxH, y));
 
@@ -3273,25 +3279,6 @@
     const plan = itemPlan || p.itemPlan;
     babyGender = "female";
 
-    if (els.breedSteps) {
-      els.breedSteps.innerHTML = p.steps
-        .map(
-          (line, i) =>
-            `<li><span class="breed-steps__n">${i + 1}</span> ${line}</li>`
-        )
-        .join("");
-    }
-
-    els.breedSummary.innerHTML = `
-      Uniendo <strong>${capitalize(male.name)}</strong> ♂ (${p.maleP}×31) +
-      <strong>${capitalize(female.name)}</strong> ♀ (${p.femaleP}×31)<br />
-      Cría: <strong>${capitalize(species.name)}</strong>
-      · <strong>${p.guaranteedPerfects} IV(s)</strong> fijos por pesa
-      ${p.isBuildUp ? `· pool <strong>${p.poolPerfects}×31</strong>` : ""}.<br />
-      Costo de esta crianza: <strong id="breed-cost">${formatMoney(calculateBreedCost(plan, babyGender))}</strong>
-      (<span>${plan.guaranteed} pesa(s) × $500</span><span id="breed-cost-details">${babyGender === "male" ? " + cambio de género × $500" : ""}</span>).
-    `;
-
     const sharedKeys = p.sharedKeys || [];
     els.breedIvs.innerHTML = IV_STATS.map((stat) => {
       const k = stat.key;
@@ -3373,13 +3360,7 @@
   }
 
   function sheetPoint(e) {
-    const rect = els.draw.getBoundingClientRect();
-    const scaleX = SHEET_W / rect.width;
-    const scaleY = SHEET_H / rect.height;
-    return {
-      x: (e.clientX - rect.left) * scaleX,
-      y: (e.clientY - rect.top) * scaleY,
-    };
+    return clientToSheet(e.clientX, e.clientY);
   }
 
   function drawAt(e) {
@@ -3442,405 +3423,6 @@
     showToast("Página vacía");
   }
 
-  const BOX_DIGITS = {
-    "0": [".###.", "#...#", "#..##", "#.#.#", "##..#", "#...#", ".###."],
-    "1": ["..#..", ".##..", "..#..", "..#..", "..#..", "..#..", "#####"],
-    "2": [".###.", "#...#", "....#", "...#.", "..#..", ".#...", "#####"],
-    "3": [".###.", "#...#", "....#", "..##.", "....#", "#...#", ".###."],
-    "4": ["...##", "..#.#", ".#..#", "#...#", "#####", "....#", "....#"],
-    "5": ["#####", "#....", "####.", "....#", "....#", "#...#", ".###."],
-    "6": ["..##.", ".#...", "#....", "####.", "#...#", "#...#", ".###."],
-    "7": ["#####", "#...#", "....#", "...#.", "..#..", "...#.", "....#"],
-    "8": [".###.", "#...#", "#...#", ".###.", "#...#", "#...#", ".###."],
-    "9": [".###.", "#...#", "#...#", ".####", "....#", "...#.", ".##.."],
-  };
-
-  let boxMons = [];
-
-  function isBoxMalePixel(r, g, b) {
-    return g > 190 && b > 190 && r < 170 && g - r > 60;
-  }
-
-  function isBoxFemalePixel(r, g, b) {
-    return r > 190 && g < 150 && b < 160 && r - g > 70;
-  }
-
-  function isBoxWhitePixel(r, g, b) {
-    return r > 200 && g > 200 && b > 200;
-  }
-
-  function trimGlyphColumns(rows) {
-    const width = rows[0]?.length || 0;
-    let left = 0;
-    let right = width - 1;
-    const empty = (x) => rows.every((row) => row[x] !== "#");
-    while (left <= right && empty(left)) left += 1;
-    while (right >= left && empty(right)) right -= 1;
-    if (left > right) return rows.map(() => "");
-    return rows.map((row) => row.slice(left, right + 1));
-  }
-
-  function glyphScore(glyph, template) {
-    const rows = trimGlyphColumns(glyph);
-    const height = template.length;
-    const width = template[0].length;
-    if (!rows[0] || rows.length !== height) return 0;
-    let same = 0;
-    for (let y = 0; y < height; y += 1) {
-      const row = rows[y];
-      for (let x = 0; x < width; x += 1) {
-        const sx =
-          row.length === width
-            ? x
-            : Math.min(row.length - 1, Math.floor(((x + 0.5) * row.length) / width));
-        const on = row[sx] === "#";
-        const expected = template[y][x] === "#";
-        if (on === expected) same += 1;
-      }
-    }
-    return same / (width * height);
-  }
-
-  function readLevelAt(sample, slot, pitch, width, height) {
-    const textH = Math.max(7, pitch * (7 / 54));
-    const x0 = Math.round(slot.x - pitch * 0.66);
-    const x1 = Math.round(slot.x - pitch * 0.12);
-    const y0 = Math.round(slot.y - textH * 0.55);
-    const srcW = Math.max(8, x1 - x0 + 1);
-    const normH = 7;
-    const normW = Math.max(12, Math.round((srcW * normH) / textH));
-    const grid = [];
-    for (let ny = 0; ny < normH; ny += 1) {
-      let row = "";
-      const y = Math.max(0, Math.min(height - 1, Math.round(y0 + ((ny + 0.5) * textH) / normH)));
-      for (let nx = 0; nx < normW; nx += 1) {
-        const x = Math.max(0, Math.min(width - 1, Math.round(x0 + ((nx + 0.5) * srcW) / normW)));
-        const [r, g, b] = sample(x, y);
-        row += isBoxWhitePixel(r, g, b) ? "#" : ".";
-      }
-      grid.push(row);
-    }
-
-    const glyphs = [];
-    let current = null;
-    for (let x = 0; x < normW; x += 1) {
-      const ink = grid.some((row) => row[x] === "#");
-      if (!ink) {
-        if (current) glyphs.push(current);
-        current = null;
-        continue;
-      }
-      if (!current) current = grid.map(() => "");
-      for (let y = 0; y < normH; y += 1) current[y] += grid[y][x];
-    }
-    if (current) glyphs.push(current);
-
-    let digits = "";
-    for (const glyph of glyphs) {
-      const ink = glyph.join("").split("#").length - 1;
-      if (ink < 6) continue;
-      let best = "";
-      let score = 0;
-      for (const [digit, template] of Object.entries(BOX_DIGITS)) {
-        const next = glyphScore(glyph, template);
-        if (next > score) {
-          score = next;
-          best = digit;
-        }
-      }
-      if (score >= 0.78) digits += best;
-    }
-    const level = Number(digits);
-    if (!Number.isInteger(level) || level < 1 || level > 100) return null;
-    return level;
-  }
-
-  function ivMarkKey(r, g, b) {
-    if (r > 170 && g > 170 && b < 120) return "spd";
-    if (r > 165 && b > 140 && g < 145 && b - g > 25) return "spa";
-    if (r > 170 && g > 95 && g < 210 && b < 95 && r - b > 70) return "def";
-    if (g > 150 && r < 155 && b < 175 && g - r > 30 && g + 25 >= b) return "hp";
-    if (r > 175 && g < 145 && b < 155 && r - g > 40) return "atk";
-    if (g > 150 && b > 150 && r < 155 && Math.min(g, b) - r > 30) return "spe";
-    return "";
-  }
-
-  function readPerfectMarks(sample, slot, pitch, width, height) {
-    const x0 = Math.max(0, Math.round(slot.x - pitch * 0.58));
-    const x1 = Math.min(width - 1, Math.round(slot.x + pitch * 0.08));
-    const y0 = Math.max(0, Math.round(slot.y + pitch * 0.22));
-    const y1 = Math.min(height - 1, Math.round(slot.y + pitch * 0.9));
-    const counts = { hp: 0, atk: 0, def: 0, spa: 0, spd: 0, spe: 0 };
-    for (let y = y0; y <= y1; y += 1) {
-      for (let x = x0; x <= x1; x += 1) {
-        const key = ivMarkKey(...sample(x, y));
-        if (key) counts[key] += 1;
-      }
-    }
-    const need = Math.max(5, Math.round(pitch * 0.12));
-    return IV_STATS.map((stat) => stat.key).filter((key) => counts[key] >= need);
-  }
-
-  function readBoxScreenshot(image) {
-    const maxSide = 1100;
-    const scale = Math.min(1, maxSide / Math.max(image.width, image.height));
-    const width = Math.max(1, Math.round(image.width * scale));
-    const height = Math.max(1, Math.round(image.height * scale));
-    const canvas = document.createElement("canvas");
-    canvas.width = width;
-    canvas.height = height;
-    const ctx = canvas.getContext("2d", { willReadFrequently: true });
-    ctx.imageSmoothingEnabled = false;
-    ctx.drawImage(image, 0, 0, width, height);
-    const pixels = ctx.getImageData(0, 0, width, height).data;
-    const sample = (x, y) => {
-      const i = (y * width + x) * 4;
-      return [pixels[i], pixels[i + 1], pixels[i + 2]];
-    };
-
-    const radius = Math.max(4, Math.round(width / 70));
-    const blobs = [];
-    for (let y = 0; y < height; y += 1) {
-      for (let x = 0; x < width; x += 1) {
-        const [r, g, b] = sample(x, y);
-        const male = isBoxMalePixel(r, g, b);
-        const female = isBoxFemalePixel(r, g, b);
-        if (!male && !female) continue;
-        let blob = null;
-        for (const candidate of blobs) {
-          const cx = candidate.sx / candidate.n;
-          const cy = candidate.sy / candidate.n;
-          if (Math.abs(cx - x) <= radius && Math.abs(cy - y) <= radius) {
-            blob = candidate;
-            break;
-          }
-        }
-        if (!blob) {
-          blob = { sx: 0, sy: 0, n: 0, male: 0, female: 0, minX: x, maxX: x, minY: y, maxY: y };
-          blobs.push(blob);
-        }
-        blob.sx += x;
-        blob.sy += y;
-        blob.n += 1;
-        if (male) blob.male += 1;
-        if (female) blob.female += 1;
-        blob.minX = Math.min(blob.minX, x);
-        blob.maxX = Math.max(blob.maxX, x);
-        blob.minY = Math.min(blob.minY, y);
-        blob.maxY = Math.max(blob.maxY, y);
-      }
-    }
-
-    const icons = blobs
-      .filter((blob) => blob.n >= 6 && blob.maxX - blob.minX < radius * 4 && blob.maxY - blob.minY < radius * 4)
-      .map((blob) => ({
-        x: blob.sx / blob.n,
-        y: blob.sy / blob.n,
-        gender: blob.male >= blob.female ? "male" : "female",
-      }));
-    if (icons.length < 1) {
-      return { error: "No encontré los símbolos ♂ y ♀. El pantallazo tiene que mostrar la caja completa." };
-    }
-
-    icons.sort((a, b) => a.y - b.y || a.x - b.x);
-    const xGaps = [];
-    const byX = [...icons].sort((a, b) => a.x - b.x);
-    for (let i = 1; i < byX.length; i += 1) {
-      const gap = byX[i].x - byX[i - 1].x;
-      if (gap > radius * 2) xGaps.push(gap);
-    }
-    let roughPitch = radius * 8;
-    if (xGaps.length) {
-      const bins = new Map();
-      for (const gap of xGaps) {
-        const bin = Math.round(gap / radius) * radius;
-        bins.set(bin, (bins.get(bin) || 0) + 1);
-      }
-      let bestCount = 0;
-      for (const [bin, count] of bins) {
-        if (bin >= radius * 5 && count >= bestCount) {
-          roughPitch = bin;
-          bestCount = count;
-        }
-      }
-    }
-    const slotIcons = [];
-    for (const icon of icons) {
-      const stacked = slotIcons.some(
-        (kept) =>
-          Math.abs(kept.x - icon.x) < roughPitch * 0.72 &&
-          icon.y > kept.y + roughPitch * 0.16 &&
-          icon.y < kept.y + roughPitch * 0.85
-      );
-      if (!stacked) slotIcons.push(icon);
-    }
-    icons.length = 0;
-    icons.push(...slotIcons);
-
-    const rows = [];
-    for (const icon of icons) {
-      const row = rows.find((entry) => Math.abs(entry.y - icon.y) < radius * 1.6);
-      if (row) {
-        row.items.push(icon);
-        row.y = row.items.reduce((sum, item) => sum + item.y, 0) / row.items.length;
-      } else {
-        rows.push({ y: icon.y, items: [icon] });
-      }
-    }
-    const gaps = [];
-    for (const row of rows) {
-      row.items.sort((a, b) => a.x - b.x);
-      for (let i = 1; i < row.items.length; i += 1) {
-        gaps.push(row.items[i].x - row.items[i - 1].x);
-      }
-    }
-    gaps.sort((a, b) => a - b);
-    const pitch = gaps.length ? gaps[Math.floor(gaps.length / 2)] : radius * 8;
-
-    const mons = [];
-    for (const row of rows) {
-      for (const slot of row.items) {
-        mons.push({
-          gender: slot.gender,
-          level: readLevelAt(sample, slot, pitch, width, height),
-          perfect: readPerfectMarks(sample, slot, pitch, width, height),
-        });
-      }
-    }
-    return { mons };
-  }
-
-  function fillBoxSpeciesList() {
-    if (!els.boxSpeciesList || els.boxSpeciesList.dataset.ready) return;
-    const html = pokemonCatalog
-      .map((poke) => `<option value="${escapeHtml(poke.name)}"></option>`)
-      .join("");
-    els.boxSpeciesList.innerHTML = html;
-    if (pokemonCatalog.length) els.boxSpeciesList.dataset.ready = "1";
-  }
-
-  function renderBoxPreview() {
-    if (!els.boxPreview) return;
-    els.boxPreview.innerHTML = boxMons
-      .map((mon, index) => {
-        const symbol = mon.gender === "male" ? "♂" : "♀";
-        const who = mon.gender === "male" ? "Hombre" : "Mujer";
-        const marks = (mon.perfect || [])
-          .map((key) => IV_STATS.find((stat) => stat.key === key)?.label || key)
-          .join(" ");
-        return `
-          <div class="box-row">
-            <span class="box-row__gender" data-gender="${mon.gender}">${symbol} ${who}${marks ? ` · ${marks}` : ""}</span>
-            <input type="number" min="1" max="100" data-box-level="${index}" value="${mon.level ?? ""}" aria-label="Nivel ${index + 1}" />
-            <button type="button" class="btn btn--ghost btn--sm" data-box-skip="${index}">Quitar</button>
-          </div>
-        `;
-      })
-      .join("");
-    const readable = boxMons.filter((mon) => mon.level).length;
-    if (els.boxStatus) {
-      els.boxStatus.textContent = boxMons.length
-        ? `${boxMons.length} Pokémon · ${readable} con nivel leído. Confirma la especie.`
-        : "Todavía no hay Pokémon leídos.";
-    }
-    if (els.boxConfirm) els.boxConfirm.disabled = boxMons.length === 0;
-  }
-
-  function openBoxModal() {
-    fillBoxSpeciesList();
-    els.boxModal?.classList.remove("hidden");
-    els.boxModal?.setAttribute("aria-hidden", "false");
-    els.boxSpecies?.focus();
-  }
-
-  function closeBoxModal() {
-    els.boxModal?.classList.add("hidden");
-    els.boxModal?.setAttribute("aria-hidden", "true");
-  }
-
-  function loadBoxFile(file) {
-    if (!file || !file.type.startsWith("image/")) {
-      showToast("Elige una imagen de la caja");
-      return;
-    }
-    const url = URL.createObjectURL(file);
-    const image = new Image();
-    image.onload = () => {
-      URL.revokeObjectURL(url);
-      const result = readBoxScreenshot(image);
-      if (result.error) {
-        boxMons = [];
-        renderBoxPreview();
-        if (els.boxStatus) els.boxStatus.textContent = result.error;
-        if (els.boxConfirm) els.boxConfirm.disabled = true;
-        return;
-      }
-      boxMons = result.mons;
-      renderBoxPreview();
-      openBoxModal();
-    };
-    image.onerror = () => {
-      URL.revokeObjectURL(url);
-      showToast("No se pudo abrir la imagen");
-    };
-    image.src = url;
-  }
-
-  function findBoxSpecies(name) {
-    const query = name.trim().toLowerCase();
-    if (!query) return null;
-    return (
-      pokemonCatalog.find((poke) => poke.name === query) ||
-      pokemonCatalog.find((poke) => poke.name.replace(/[^a-z0-9]/g, "") === query.replace(/[^a-z0-9]/g, ""))
-    );
-  }
-
-  function confirmBoxImport() {
-    const species = findBoxSpecies(els.boxSpecies?.value || "");
-    if (!species) {
-      showToast("Escribe la especie tal como sale en la lista, por ejemplo aron");
-      els.boxSpecies?.focus();
-      return;
-    }
-    const pending = boxMons.filter((mon) => !mon.skip);
-    if (!pending.length) {
-      showToast("No quedó ningún Pokémon para añadir");
-      return;
-    }
-    const perfect = Boolean(els.boxPerfect?.checked);
-    pushUndo();
-    for (const mon of pending) {
-      const ivValues = emptyIvs();
-      if (mon.perfect?.length) {
-        for (const key of mon.perfect) ivValues[key] = 31;
-      } else if (perfect) {
-        for (const stat of IV_STATS) ivValues[stat.key] = 31;
-      }
-      const pos = nextFreePosition();
-      const level = Number(mon.level);
-      saved.push({
-        uid: makeId(),
-        id: species.id,
-        name: species.name,
-        sprite: species.sprite,
-        gender: mon.gender,
-        nature: "",
-        eggGroups: [...(species.eggGroups || [])],
-        ivs: ivValues,
-        lineTags: tagsFromIvs(ivValues),
-        level: Number.isInteger(level) && level >= 1 && level <= 100 ? level : undefined,
-        x: pos.x,
-        y: pos.y,
-        isBaby: false,
-        createdAt: new Date().toISOString(),
-      });
-    }
-    persist();
-    closeBoxModal();
-    renderSaved();
-    showToast(`${pending.length} ${capitalize(species.name)} añadidos al cuaderno`);
-  }
-
   async function onPasteClipboard(e) {
     const tag = e.target?.tagName;
     const typing = tag === "INPUT" || tag === "TEXTAREA" || e.target?.isContentEditable;
@@ -3863,14 +3445,7 @@
       if (!item.type.startsWith("image/")) continue;
       e.preventDefault();
       const file = item.getAsFile();
-      if (file) {
-        if (els.boxModal && !els.boxModal.classList.contains("hidden")) {
-          e.preventDefault();
-          loadBoxFile(file);
-          return;
-        }
-        await addPastedImage(file);
-      }
+      if (file) await addPastedImage(file);
       return;
     }
   }
@@ -3963,46 +3538,6 @@
     els.btnImportPage?.addEventListener("click", () => {
       closePageMenu();
       els.pageImportFile?.click();
-    });
-    els.btnPasteCaja?.addEventListener("click", () => {
-      pasteCajaFromClipboard();
-    });
-    els.btnReadBox?.addEventListener("click", openBoxModal);
-    els.boxDrop?.addEventListener("click", () => els.boxFile?.click());
-    els.boxFile?.addEventListener("change", () => {
-      const file = els.boxFile.files?.[0];
-      if (file) loadBoxFile(file);
-      els.boxFile.value = "";
-    });
-    els.boxConfirm?.addEventListener("click", confirmBoxImport);
-    els.boxModal?.querySelectorAll("[data-close-box]").forEach((el) => {
-      el.addEventListener("click", closeBoxModal);
-    });
-    els.boxPreview?.addEventListener("input", (e) => {
-      const index = Number(e.target.dataset.boxLevel);
-      if (!boxMons[index]) return;
-      const level = Number(e.target.value);
-      boxMons[index].level =
-        Number.isInteger(level) && level >= 1 && level <= 100 ? level : null;
-    });
-    els.boxPreview?.addEventListener("click", (e) => {
-      const button = e.target.closest("[data-box-skip]");
-      if (!button) return;
-      boxMons.splice(Number(button.dataset.boxSkip), 1);
-      renderBoxPreview();
-    });
-    els.boxDrop?.addEventListener("dragover", (e) => {
-      e.preventDefault();
-      els.boxDrop.classList.add("is-hot");
-    });
-    els.boxDrop?.addEventListener("dragleave", () => {
-      els.boxDrop.classList.remove("is-hot");
-    });
-    els.boxDrop?.addEventListener("drop", (e) => {
-      e.preventDefault();
-      els.boxDrop.classList.remove("is-hot");
-      const file = e.dataTransfer?.files?.[0];
-      if (file) loadBoxFile(file);
     });
     els.btnPublishCommunity?.addEventListener("click", () => {
       closePageMenu();
@@ -4191,13 +3726,11 @@
       babyGender = "male";
       els.breedMale.classList.add("is-selected");
       els.breedFemale.classList.remove("is-selected");
-      updateBreedCostPreview();
     });
     els.breedFemale.addEventListener("click", () => {
       babyGender = "female";
       els.breedFemale.classList.add("is-selected");
       els.breedMale.classList.remove("is-selected");
-      updateBreedCostPreview();
     });
     els.breedConfirm.addEventListener("click", confirmBreed);
     els.breedModal.querySelectorAll("[data-close-modal]").forEach((el) => {
