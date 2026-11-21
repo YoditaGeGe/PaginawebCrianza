@@ -124,6 +124,17 @@
     btnDeletePage: document.getElementById("btn-delete-page"),
     btnExportPage: document.getElementById("btn-export-page"),
     btnImportPage: document.getElementById("btn-import-page"),
+    btnPasteCaja: document.getElementById("btn-paste-caja"),
+    btnReadBox: document.getElementById("btn-read-box"),
+    boxFile: document.getElementById("box-file"),
+    boxModal: document.getElementById("box-modal"),
+    boxDrop: document.getElementById("box-drop"),
+    boxSpecies: document.getElementById("box-species"),
+    boxSpeciesList: document.getElementById("box-species-list"),
+    boxPerfect: document.getElementById("box-perfect"),
+    boxStatus: document.getElementById("box-status"),
+    boxPreview: document.getElementById("box-preview"),
+    boxConfirm: document.getElementById("box-confirm"),
     btnPublishCommunity: document.getElementById("btn-publish-community"),
     btnUpdates: document.getElementById("btn-updates"),
     btnCompanion: document.getElementById("btn-companion"),
@@ -209,6 +220,9 @@
   let babyGender = "female";
   let pendingDrop = null;
   let listPan = null;
+  let listView = null;
+  let listRangeKey = "";
+  let listPaintQueued = false;
   const UNDO_LIMIT = 40;
   let undoStack = [];
   let redoStack = [];
@@ -549,6 +563,15 @@
     showToast(`Crianza de comunidad: "${imported.name}"`);
   }
 
+  function eggGroupsFromImport(entry) {
+    const listed = Array.isArray(entry.eggGroups)
+      ? entry.eggGroups.filter((group) => typeof group === "string").slice(0, 20)
+      : [];
+    if (listed.length) return listed;
+    const cat = pokemonCatalog.find((poke) => poke.id === entry.id || poke.name === entry.name);
+    return cat?.eggGroups?.length ? [...cat.eggGroups] : [];
+  }
+
   function isRecord(value) {
     return value !== null && typeof value === "object" && !Array.isArray(value);
   }
@@ -574,7 +597,7 @@
       !Array.isArray(source.saved) ||
       !Array.isArray(source.pasted) ||
       !Array.isArray(source.textBoxes) ||
-      (source.drawing !== null &&
+      (source.drawing != null &&
         (typeof source.drawing !== "string" ||
           !/^data:image\/png;base64,[a-z\d+/=]+$/i.test(source.drawing)))
     ) {
@@ -614,9 +637,7 @@
         sprite: entry.sprite,
         gender: entry.gender,
         nature: typeof entry.nature === "string" ? entry.nature.slice(0, 40) : "",
-        eggGroups: Array.isArray(entry.eggGroups)
-          ? entry.eggGroups.filter((group) => typeof group === "string").slice(0, 20)
-          : [],
+        eggGroups: eggGroupsFromImport(entry),
         ivs: ivValues,
         x: importedPosition(entry.x, SHEET_W - CARD_W),
         y: importedPosition(entry.y, SHEET_H - CARD_H),
@@ -626,7 +647,12 @@
             ? entry.createdAt
             : new Date().toISOString(),
       };
-      if (typeof entry.uid === "string") uidMap.set(entry.uid, imported.uid);
+      if (typeof entry.uid === "string") {
+        uidMap.set(entry.uid, imported.uid);
+        if (/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(entry.uid)) {
+          imported.gameUid = entry.uid;
+        }
+      }
       if (typeof entry.parents === "string") imported.parents = entry.parents.slice(0, 200);
       if (isRecord(entry.heldPlan)) {
         imported.heldPlan = {
@@ -638,6 +664,13 @@
         imported.breedCost = Math.min(entry.breedCost, 1000000);
       }
       if (entry.ready === true) imported.ready = true;
+      if (
+        Number.isInteger(entry.level) &&
+        entry.level >= 1 &&
+        entry.level <= 100
+      ) {
+        imported.level = entry.level;
+      }
       if (Array.isArray(entry.parentUids)) {
         imported._parentUids = entry.parentUids
           .filter((uid) => typeof uid === "string")
@@ -690,6 +723,113 @@
     return page;
   }
 
+  function readCrianzaPages(data) {
+    if (isRecord(data) && data.format === "crianza-pokemon-pages" && data.version === 1 && Array.isArray(data.pages)) {
+      if (!data.pages.length) throw new Error("El archivo no trae cajas");
+      return data.pages.map((page) =>
+        validateImportedPage({ format: PAGE_FILE_FORMAT, version: 1, page })
+      );
+    }
+    return [validateImportedPage(data)];
+  }
+
+  function mergeImportedPage(imported) {
+    const gameUids = imported.saved.map((entry) => entry.gameUid).filter(Boolean);
+    if (!gameUids.length) {
+      store.pages.push(imported);
+      return { target: imported, created: true, added: imported.saved.length, updated: 0 };
+    }
+    const known = new Set(gameUids);
+    let target = store.pages.find((page) =>
+      page.saved.some((entry) => entry.gameUid && known.has(entry.gameUid))
+    );
+    if (!target) target = store.pages.find((page) => page.name === imported.name);
+    if (!target) {
+      store.pages.push(imported);
+      return { target: imported, created: true, added: imported.saved.length, updated: 0 };
+    }
+    const byGame = new Map(
+      target.saved.filter((entry) => entry.gameUid).map((entry) => [entry.gameUid, entry])
+    );
+    let added = 0;
+    let updated = 0;
+    for (const entry of imported.saved) {
+      const existing = entry.gameUid ? byGame.get(entry.gameUid) : null;
+      if (!existing) {
+        target.saved.push(entry);
+        if (entry.gameUid) byGame.set(entry.gameUid, entry);
+        added++;
+        continue;
+      }
+      existing.id = entry.id;
+      existing.name = entry.name;
+      existing.sprite = entry.sprite;
+      existing.gender = entry.gender;
+      existing.nature = entry.nature;
+      if (entry.eggGroups.length) existing.eggGroups = entry.eggGroups;
+      existing.ivs = entry.ivs;
+      if (entry.level) existing.level = entry.level;
+      updated++;
+    }
+    target.updatedAt = new Date().toISOString();
+    return { target, created: false, added, updated };
+  }
+
+  function applyCrianzaDocument(data) {
+    const pages = readCrianzaPages(data);
+    persistDrawing();
+    persist();
+    let added = 0;
+    let updated = 0;
+    let created = 0;
+    let last = null;
+    for (const imported of pages) {
+      const result = mergeImportedPage(imported);
+      added += result.added;
+      updated += result.updated;
+      if (result.created) created++;
+      last = result.target;
+    }
+    store.activeId = last.id;
+    const page = normalizePage(last);
+    saved = page.saved;
+    pasted = page.pasted;
+    textBoxes = page.textBoxes;
+    selectedPasteUid = null;
+    clearUndoHistory();
+    cancelUnite();
+    hideMenu();
+    loadDrawingFromPage();
+    renderSaved();
+    renderPages();
+    persist();
+    const parts = [];
+    if (created) parts.push(created === 1 ? "1 página nueva" : `${created} páginas nuevas`);
+    if (added) parts.push(added === 1 ? "1 Pokémon nuevo" : `${added} Pokémon nuevos`);
+    if (updated) parts.push(updated === 1 ? "1 actualizado" : `${updated} actualizados`);
+    showToast(parts.join(" · ") || `Página "${last.name}" lista`);
+  }
+
+  async function pasteCajaFromClipboard() {
+    let text = "";
+    try {
+      text = (await navigator.clipboard.readText()).trim();
+    } catch {
+      showToast("No pude leer el portapapeles. Copia la caja en el juego y pulsa Ctrl+V.");
+      return;
+    }
+    if (!text.startsWith("{") || !text.includes("crianza-pokemon-page")) {
+      showToast("Primero copia la caja en el PC, con el botón Copiar caja o la tecla K.");
+      return;
+    }
+    try {
+      applyCrianzaDocument(JSON.parse(text));
+    } catch (error) {
+      console.error("No se pudo pegar la caja", error);
+      showToast(error instanceof SyntaxError ? "El portapapeles no contiene JSON válido" : error.message);
+    }
+  }
+
   async function importPageFile(file) {
     if (!file) return;
     if (file.size > 100 * 1024 * 1024) {
@@ -697,22 +837,7 @@
       return;
     }
     try {
-      const imported = validateImportedPage(JSON.parse(await file.text()));
-      persistDrawing();
-      persist();
-      store.pages.push(imported);
-      store.activeId = imported.id;
-      saved = imported.saved;
-      pasted = imported.pasted;
-      textBoxes = imported.textBoxes;
-      selectedPasteUid = null;
-      clearUndoHistory();
-      cancelUnite();
-      hideMenu();
-      loadDrawingFromPage();
-      renderSaved();
-      persist();
-      showToast(`Página "${imported.name}" importada`);
+      applyCrianzaDocument(JSON.parse(await file.text()));
     } catch (error) {
       console.error("No se pudo importar la página", error);
       showToast(error instanceof SyntaxError ? "El archivo no contiene JSON válido" : error.message);
@@ -1650,6 +1775,14 @@
     return g === "male" ? "♂ Hombre" : "♀ Mujer";
   }
 
+  function cardGenderText(entry) {
+    const symbol = entry.gender === "male" ? "♂" : "♀";
+    if (Number.isInteger(entry.level) && entry.level > 0) {
+      return `${symbol} Nv.${entry.level}`;
+    }
+    return genderLabel(entry.gender);
+  }
+
   function snap(n) {
     return Math.round(n / GRID) * GRID;
   }
@@ -1847,19 +1980,53 @@
     setSheetZoom(sheetZoom + delta, anchor);
   }
 
-  function renderList(filter = "") {
-    const q = filter.trim().toLowerCase();
-    const items = pokemonCatalog.filter((p) => {
-      const matchesSearch =
-        !q || p.name.includes(q) || String(p.id).includes(q);
-      const matchesEgg =
-        !selectedEggGroup || p.eggGroups.includes(selectedEggGroup);
-      return matchesSearch && matchesEgg;
+  const LIST_GAP = 6;
+  const LIST_PAD = 8;
+  const LIST_ROW_H = 84;
+  const LIST_MIN_COL = 136;
+
+  function listLayout() {
+    const width = els.list.clientWidth || 280;
+    const inner = Math.max(LIST_MIN_COL, width - LIST_PAD * 2);
+    const cols = Math.max(
+      1,
+      Math.floor((inner + LIST_GAP) / (LIST_MIN_COL + LIST_GAP))
+    );
+    const colW = (inner - LIST_GAP * (cols - 1)) / cols;
+    return { cols, colW, rowH: LIST_ROW_H, gap: LIST_GAP, pad: LIST_PAD };
+  }
+
+  function createPokeButton(poke) {
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.className = "poke-item";
+    btn.dataset.id = String(poke.id);
+    btn.draggable = !listPan?.moved;
+    btn.title = `${capitalize(poke.name)} — arrastra al cuaderno`;
+    btn.innerHTML = `
+      <img class="poke-item__sprite" alt="" width="36" height="36" decoding="async" loading="lazy" draggable="false" />
+      <span class="poke-item__name"></span>
+      <span class="poke-item__id"></span>
+    `;
+    const img = btn.querySelector("img");
+    img.src = poke.sprite;
+    btn.querySelector(".poke-item__name").textContent = poke.name;
+    btn.querySelector(".poke-item__id").textContent = `#${padId(poke.id)}`;
+    btn.addEventListener("click", () => {
+      if (listPan?.moved) return;
+      selectPokemon(poke);
     });
+    btn.addEventListener("dragstart", (e) => onPokeDragStart(e, poke, btn));
+    btn.addEventListener("dragend", () => onPokeDragEnd(btn));
+    return btn;
+  }
 
-    els.list.innerHTML = "";
+  function paintListWindow() {
+    if (!els.list || !listView) return;
 
-    if (!items.length) {
+    if (!listView.length) {
+      listRangeKey = "";
+      els.list.innerHTML = "";
       const p = document.createElement("p");
       p.className = "list-status";
       p.textContent = selectedEggGroup
@@ -1869,25 +2036,83 @@
       return;
     }
 
+    const { cols, colW, rowH, gap, pad } = listLayout();
+    const stride = rowH + gap;
+    const rows = Math.ceil(listView.length / cols);
+    const totalH = pad * 2 + rows * rowH + Math.max(0, rows - 1) * gap;
+    const viewTop = els.list.scrollTop;
+    const viewH = els.list.clientHeight || 480;
+    const startRow = Math.max(0, Math.floor((viewTop - pad) / stride) - 1);
+    const endRow = Math.min(
+      rows,
+      Math.ceil((viewTop + viewH - pad) / stride) + 2
+    );
+    const start = startRow * cols;
+    const end = Math.min(listView.length, endRow * cols);
+    const key = `${cols}|${Math.round(colW)}|${start}|${end}|${selected?.id || ""}`;
+    if (key === listRangeKey && els.list.querySelector(".pokemon-list__window")) {
+      return;
+    }
+    listRangeKey = key;
+
+    let windowEl = els.list.querySelector(".pokemon-list__window");
+    if (!windowEl) {
+      els.list.replaceChildren();
+      windowEl = document.createElement("div");
+      windowEl.className = "pokemon-list__window";
+      els.list.appendChild(windowEl);
+    }
+    windowEl.style.height = `${totalH}px`;
+
+    const byId = new Map(
+      [...windowEl.children].map((el) => [el.dataset.id, el])
+    );
     const frag = document.createDocumentFragment();
-    for (const poke of items) {
-      const btn = document.createElement("button");
-      btn.type = "button";
-      btn.className =
-        "poke-item" + (selected?.id === poke.id ? " is-active" : "");
-      btn.draggable = true;
-      btn.title = `${capitalize(poke.name)} — arrastra al cuaderno`;
-      btn.innerHTML = `
-        <img class="poke-item__sprite" src="${poke.sprite}" alt="" loading="lazy" draggable="false" />
-        <span class="poke-item__name">${poke.name}</span>
-        <span class="poke-item__id">#${padId(poke.id)}</span>
-      `;
-      btn.addEventListener("click", () => selectPokemon(poke));
-      btn.addEventListener("dragstart", (e) => onPokeDragStart(e, poke, btn));
-      btn.addEventListener("dragend", () => onPokeDragEnd(btn));
+    for (let i = start; i < end; i++) {
+      const poke = listView[i];
+      const col = i % cols;
+      const row = Math.floor(i / cols);
+      let btn = byId.get(String(poke.id));
+      if (!btn) btn = createPokeButton(poke);
+      btn.classList.toggle("is-active", selected?.id === poke.id);
+      btn.draggable = !listPan?.moved;
+      btn.style.left = `${pad + col * (colW + gap)}px`;
+      btn.style.top = `${pad + row * stride}px`;
+      btn.style.width = `${colW}px`;
+      btn.style.height = `${rowH}px`;
       frag.appendChild(btn);
     }
-    els.list.appendChild(frag);
+    windowEl.replaceChildren(frag);
+  }
+
+  function scheduleListPaint() {
+    if (listPaintQueued || !listView) return;
+    listPaintQueued = true;
+    requestAnimationFrame(() => {
+      listPaintQueued = false;
+      paintListWindow();
+    });
+  }
+
+  function renderList(filter = "") {
+    const q = filter.trim().toLowerCase();
+    const items = pokemonCatalog.filter((p) => {
+      const matchesSearch =
+        !q || p.name.includes(q) || String(p.id).includes(q);
+      const matchesEgg =
+        !selectedEggGroup || p.eggGroups.includes(selectedEggGroup);
+      return matchesSearch && matchesEgg;
+    });
+    const same =
+      listView &&
+      listView.length === items.length &&
+      listView.every((poke, i) => poke.id === items[i].id);
+    listView = items;
+    if (!same) {
+      els.list.scrollTop = 0;
+      listRangeKey = "";
+    }
+    paintListWindow();
   }
 
   function onPokeDragStart(e, poke, btn) {
@@ -2201,42 +2426,42 @@
   const POWER_ITEMS = {
     hp: {
       id: "weight",
-      src: "assets/power-weight.png",
+      icon: "fitness_center",
       name: "Pesa Recia",
       short: "Pesa HP",
       statLabel: "HP",
     },
     atk: {
       id: "bracer",
-      src: "assets/power-bracer.png",
+      icon: "swords",
       name: "Brazal Recio",
       short: "Brazal Atk",
       statLabel: "Ataque",
     },
     def: {
       id: "belt",
-      src: "assets/power-belt.png",
+      icon: "shield",
       name: "Cinto Recio",
       short: "Cinto Def",
       statLabel: "Defensa",
     },
     spa: {
       id: "lens",
-      src: "assets/power-lens.png",
+      icon: "visibility",
       name: "Lente Recia",
       short: "Lente SpA",
       statLabel: "At. Esp.",
     },
     spd: {
       id: "band",
-      src: "assets/power-band.png",
+      icon: "health_and_safety",
       name: "Banda Recia",
       short: "Banda SpD",
       statLabel: "Def. Esp.",
     },
     spe: {
       id: "anklet",
-      src: "assets/power-anklet.png",
+      icon: "directions_run",
       name: "Franja Recia",
       short: "Franja Spe",
       statLabel: "Velocidad",
@@ -2245,6 +2470,7 @@
 
   const NONE_ITEM = {
     id: "none",
+    icon: "block",
     name: "Ninguno",
     short: "Sin pesa",
     detail: "Sin objeto",
@@ -2420,9 +2646,10 @@
   function itemCardHtml(side, poke, item) {
     const symbol = side === "male" ? "♂" : "♀";
     const detail = item.detail || item.short || "";
-    const iconHtml = item.src
-      ? `<img class="item-icon" src="${item.src}" alt="${item.name}" width="40" height="40" />`
-      : `<div class="item-icon item-icon--none" aria-hidden="true">—</div>`;
+    const iconName = item.icon || "block";
+    const statAttr = item.key ? ` data-stat="${item.key}"` : "";
+    const noneClass = item.id === "none" || !item.icon ? " item-icon--none" : "";
+    const iconHtml = `<span class="item-icon material-symbols-outlined${noneClass}"${statAttr} aria-hidden="true">${iconName}</span>`;
 
     return `
       <div class="item-card" data-side="${side}">
@@ -2686,7 +2913,7 @@
         <img class="saved-card__sprite" src="${escapeHtml(entry.sprite)}" alt="${escapeHtml(entry.name)}" loading="lazy" />
         <div class="saved-card__head">
           <h3 class="saved-card__name">${escapeHtml(entry.name)}</h3>
-          <p class="saved-card__gender">${genderLabel(entry.gender)}</p>
+          <p class="saved-card__gender">${cardGenderText(entry)}</p>
         </div>
         ${natureHtml}
         ${parentsHtml}
@@ -3215,7 +3442,420 @@
     showToast("Página vacía");
   }
 
+  const BOX_DIGITS = {
+    "0": [".###.", "#...#", "#..##", "#.#.#", "##..#", "#...#", ".###."],
+    "1": ["..#..", ".##..", "..#..", "..#..", "..#..", "..#..", "#####"],
+    "2": [".###.", "#...#", "....#", "...#.", "..#..", ".#...", "#####"],
+    "3": [".###.", "#...#", "....#", "..##.", "....#", "#...#", ".###."],
+    "4": ["...##", "..#.#", ".#..#", "#...#", "#####", "....#", "....#"],
+    "5": ["#####", "#....", "####.", "....#", "....#", "#...#", ".###."],
+    "6": ["..##.", ".#...", "#....", "####.", "#...#", "#...#", ".###."],
+    "7": ["#####", "#...#", "....#", "...#.", "..#..", "...#.", "....#"],
+    "8": [".###.", "#...#", "#...#", ".###.", "#...#", "#...#", ".###."],
+    "9": [".###.", "#...#", "#...#", ".####", "....#", "...#.", ".##.."],
+  };
+
+  let boxMons = [];
+
+  function isBoxMalePixel(r, g, b) {
+    return g > 190 && b > 190 && r < 170 && g - r > 60;
+  }
+
+  function isBoxFemalePixel(r, g, b) {
+    return r > 190 && g < 150 && b < 160 && r - g > 70;
+  }
+
+  function isBoxWhitePixel(r, g, b) {
+    return r > 200 && g > 200 && b > 200;
+  }
+
+  function trimGlyphColumns(rows) {
+    const width = rows[0]?.length || 0;
+    let left = 0;
+    let right = width - 1;
+    const empty = (x) => rows.every((row) => row[x] !== "#");
+    while (left <= right && empty(left)) left += 1;
+    while (right >= left && empty(right)) right -= 1;
+    if (left > right) return rows.map(() => "");
+    return rows.map((row) => row.slice(left, right + 1));
+  }
+
+  function glyphScore(glyph, template) {
+    const rows = trimGlyphColumns(glyph);
+    const height = template.length;
+    const width = template[0].length;
+    if (!rows[0] || rows.length !== height) return 0;
+    let same = 0;
+    for (let y = 0; y < height; y += 1) {
+      const row = rows[y];
+      for (let x = 0; x < width; x += 1) {
+        const sx =
+          row.length === width
+            ? x
+            : Math.min(row.length - 1, Math.floor(((x + 0.5) * row.length) / width));
+        const on = row[sx] === "#";
+        const expected = template[y][x] === "#";
+        if (on === expected) same += 1;
+      }
+    }
+    return same / (width * height);
+  }
+
+  function readLevelAt(sample, slot, pitch, width, height) {
+    const textH = Math.max(7, pitch * (7 / 54));
+    const x0 = Math.round(slot.x - pitch * 0.66);
+    const x1 = Math.round(slot.x - pitch * 0.12);
+    const y0 = Math.round(slot.y - textH * 0.55);
+    const srcW = Math.max(8, x1 - x0 + 1);
+    const normH = 7;
+    const normW = Math.max(12, Math.round((srcW * normH) / textH));
+    const grid = [];
+    for (let ny = 0; ny < normH; ny += 1) {
+      let row = "";
+      const y = Math.max(0, Math.min(height - 1, Math.round(y0 + ((ny + 0.5) * textH) / normH)));
+      for (let nx = 0; nx < normW; nx += 1) {
+        const x = Math.max(0, Math.min(width - 1, Math.round(x0 + ((nx + 0.5) * srcW) / normW)));
+        const [r, g, b] = sample(x, y);
+        row += isBoxWhitePixel(r, g, b) ? "#" : ".";
+      }
+      grid.push(row);
+    }
+
+    const glyphs = [];
+    let current = null;
+    for (let x = 0; x < normW; x += 1) {
+      const ink = grid.some((row) => row[x] === "#");
+      if (!ink) {
+        if (current) glyphs.push(current);
+        current = null;
+        continue;
+      }
+      if (!current) current = grid.map(() => "");
+      for (let y = 0; y < normH; y += 1) current[y] += grid[y][x];
+    }
+    if (current) glyphs.push(current);
+
+    let digits = "";
+    for (const glyph of glyphs) {
+      const ink = glyph.join("").split("#").length - 1;
+      if (ink < 6) continue;
+      let best = "";
+      let score = 0;
+      for (const [digit, template] of Object.entries(BOX_DIGITS)) {
+        const next = glyphScore(glyph, template);
+        if (next > score) {
+          score = next;
+          best = digit;
+        }
+      }
+      if (score >= 0.78) digits += best;
+    }
+    const level = Number(digits);
+    if (!Number.isInteger(level) || level < 1 || level > 100) return null;
+    return level;
+  }
+
+  function ivMarkKey(r, g, b) {
+    if (r > 170 && g > 170 && b < 120) return "spd";
+    if (r > 165 && b > 140 && g < 145 && b - g > 25) return "spa";
+    if (r > 170 && g > 95 && g < 210 && b < 95 && r - b > 70) return "def";
+    if (g > 150 && r < 155 && b < 175 && g - r > 30 && g + 25 >= b) return "hp";
+    if (r > 175 && g < 145 && b < 155 && r - g > 40) return "atk";
+    if (g > 150 && b > 150 && r < 155 && Math.min(g, b) - r > 30) return "spe";
+    return "";
+  }
+
+  function readPerfectMarks(sample, slot, pitch, width, height) {
+    const x0 = Math.max(0, Math.round(slot.x - pitch * 0.58));
+    const x1 = Math.min(width - 1, Math.round(slot.x + pitch * 0.08));
+    const y0 = Math.max(0, Math.round(slot.y + pitch * 0.22));
+    const y1 = Math.min(height - 1, Math.round(slot.y + pitch * 0.9));
+    const counts = { hp: 0, atk: 0, def: 0, spa: 0, spd: 0, spe: 0 };
+    for (let y = y0; y <= y1; y += 1) {
+      for (let x = x0; x <= x1; x += 1) {
+        const key = ivMarkKey(...sample(x, y));
+        if (key) counts[key] += 1;
+      }
+    }
+    const need = Math.max(5, Math.round(pitch * 0.12));
+    return IV_STATS.map((stat) => stat.key).filter((key) => counts[key] >= need);
+  }
+
+  function readBoxScreenshot(image) {
+    const maxSide = 1100;
+    const scale = Math.min(1, maxSide / Math.max(image.width, image.height));
+    const width = Math.max(1, Math.round(image.width * scale));
+    const height = Math.max(1, Math.round(image.height * scale));
+    const canvas = document.createElement("canvas");
+    canvas.width = width;
+    canvas.height = height;
+    const ctx = canvas.getContext("2d", { willReadFrequently: true });
+    ctx.imageSmoothingEnabled = false;
+    ctx.drawImage(image, 0, 0, width, height);
+    const pixels = ctx.getImageData(0, 0, width, height).data;
+    const sample = (x, y) => {
+      const i = (y * width + x) * 4;
+      return [pixels[i], pixels[i + 1], pixels[i + 2]];
+    };
+
+    const radius = Math.max(4, Math.round(width / 70));
+    const blobs = [];
+    for (let y = 0; y < height; y += 1) {
+      for (let x = 0; x < width; x += 1) {
+        const [r, g, b] = sample(x, y);
+        const male = isBoxMalePixel(r, g, b);
+        const female = isBoxFemalePixel(r, g, b);
+        if (!male && !female) continue;
+        let blob = null;
+        for (const candidate of blobs) {
+          const cx = candidate.sx / candidate.n;
+          const cy = candidate.sy / candidate.n;
+          if (Math.abs(cx - x) <= radius && Math.abs(cy - y) <= radius) {
+            blob = candidate;
+            break;
+          }
+        }
+        if (!blob) {
+          blob = { sx: 0, sy: 0, n: 0, male: 0, female: 0, minX: x, maxX: x, minY: y, maxY: y };
+          blobs.push(blob);
+        }
+        blob.sx += x;
+        blob.sy += y;
+        blob.n += 1;
+        if (male) blob.male += 1;
+        if (female) blob.female += 1;
+        blob.minX = Math.min(blob.minX, x);
+        blob.maxX = Math.max(blob.maxX, x);
+        blob.minY = Math.min(blob.minY, y);
+        blob.maxY = Math.max(blob.maxY, y);
+      }
+    }
+
+    const icons = blobs
+      .filter((blob) => blob.n >= 6 && blob.maxX - blob.minX < radius * 4 && blob.maxY - blob.minY < radius * 4)
+      .map((blob) => ({
+        x: blob.sx / blob.n,
+        y: blob.sy / blob.n,
+        gender: blob.male >= blob.female ? "male" : "female",
+      }));
+    if (icons.length < 1) {
+      return { error: "No encontré los símbolos ♂ y ♀. El pantallazo tiene que mostrar la caja completa." };
+    }
+
+    icons.sort((a, b) => a.y - b.y || a.x - b.x);
+    const xGaps = [];
+    const byX = [...icons].sort((a, b) => a.x - b.x);
+    for (let i = 1; i < byX.length; i += 1) {
+      const gap = byX[i].x - byX[i - 1].x;
+      if (gap > radius * 2) xGaps.push(gap);
+    }
+    let roughPitch = radius * 8;
+    if (xGaps.length) {
+      const bins = new Map();
+      for (const gap of xGaps) {
+        const bin = Math.round(gap / radius) * radius;
+        bins.set(bin, (bins.get(bin) || 0) + 1);
+      }
+      let bestCount = 0;
+      for (const [bin, count] of bins) {
+        if (bin >= radius * 5 && count >= bestCount) {
+          roughPitch = bin;
+          bestCount = count;
+        }
+      }
+    }
+    const slotIcons = [];
+    for (const icon of icons) {
+      const stacked = slotIcons.some(
+        (kept) =>
+          Math.abs(kept.x - icon.x) < roughPitch * 0.72 &&
+          icon.y > kept.y + roughPitch * 0.16 &&
+          icon.y < kept.y + roughPitch * 0.85
+      );
+      if (!stacked) slotIcons.push(icon);
+    }
+    icons.length = 0;
+    icons.push(...slotIcons);
+
+    const rows = [];
+    for (const icon of icons) {
+      const row = rows.find((entry) => Math.abs(entry.y - icon.y) < radius * 1.6);
+      if (row) {
+        row.items.push(icon);
+        row.y = row.items.reduce((sum, item) => sum + item.y, 0) / row.items.length;
+      } else {
+        rows.push({ y: icon.y, items: [icon] });
+      }
+    }
+    const gaps = [];
+    for (const row of rows) {
+      row.items.sort((a, b) => a.x - b.x);
+      for (let i = 1; i < row.items.length; i += 1) {
+        gaps.push(row.items[i].x - row.items[i - 1].x);
+      }
+    }
+    gaps.sort((a, b) => a - b);
+    const pitch = gaps.length ? gaps[Math.floor(gaps.length / 2)] : radius * 8;
+
+    const mons = [];
+    for (const row of rows) {
+      for (const slot of row.items) {
+        mons.push({
+          gender: slot.gender,
+          level: readLevelAt(sample, slot, pitch, width, height),
+          perfect: readPerfectMarks(sample, slot, pitch, width, height),
+        });
+      }
+    }
+    return { mons };
+  }
+
+  function fillBoxSpeciesList() {
+    if (!els.boxSpeciesList || els.boxSpeciesList.dataset.ready) return;
+    const html = pokemonCatalog
+      .map((poke) => `<option value="${escapeHtml(poke.name)}"></option>`)
+      .join("");
+    els.boxSpeciesList.innerHTML = html;
+    if (pokemonCatalog.length) els.boxSpeciesList.dataset.ready = "1";
+  }
+
+  function renderBoxPreview() {
+    if (!els.boxPreview) return;
+    els.boxPreview.innerHTML = boxMons
+      .map((mon, index) => {
+        const symbol = mon.gender === "male" ? "♂" : "♀";
+        const who = mon.gender === "male" ? "Hombre" : "Mujer";
+        const marks = (mon.perfect || [])
+          .map((key) => IV_STATS.find((stat) => stat.key === key)?.label || key)
+          .join(" ");
+        return `
+          <div class="box-row">
+            <span class="box-row__gender" data-gender="${mon.gender}">${symbol} ${who}${marks ? ` · ${marks}` : ""}</span>
+            <input type="number" min="1" max="100" data-box-level="${index}" value="${mon.level ?? ""}" aria-label="Nivel ${index + 1}" />
+            <button type="button" class="btn btn--ghost btn--sm" data-box-skip="${index}">Quitar</button>
+          </div>
+        `;
+      })
+      .join("");
+    const readable = boxMons.filter((mon) => mon.level).length;
+    if (els.boxStatus) {
+      els.boxStatus.textContent = boxMons.length
+        ? `${boxMons.length} Pokémon · ${readable} con nivel leído. Confirma la especie.`
+        : "Todavía no hay Pokémon leídos.";
+    }
+    if (els.boxConfirm) els.boxConfirm.disabled = boxMons.length === 0;
+  }
+
+  function openBoxModal() {
+    fillBoxSpeciesList();
+    els.boxModal?.classList.remove("hidden");
+    els.boxModal?.setAttribute("aria-hidden", "false");
+    els.boxSpecies?.focus();
+  }
+
+  function closeBoxModal() {
+    els.boxModal?.classList.add("hidden");
+    els.boxModal?.setAttribute("aria-hidden", "true");
+  }
+
+  function loadBoxFile(file) {
+    if (!file || !file.type.startsWith("image/")) {
+      showToast("Elige una imagen de la caja");
+      return;
+    }
+    const url = URL.createObjectURL(file);
+    const image = new Image();
+    image.onload = () => {
+      URL.revokeObjectURL(url);
+      const result = readBoxScreenshot(image);
+      if (result.error) {
+        boxMons = [];
+        renderBoxPreview();
+        if (els.boxStatus) els.boxStatus.textContent = result.error;
+        if (els.boxConfirm) els.boxConfirm.disabled = true;
+        return;
+      }
+      boxMons = result.mons;
+      renderBoxPreview();
+      openBoxModal();
+    };
+    image.onerror = () => {
+      URL.revokeObjectURL(url);
+      showToast("No se pudo abrir la imagen");
+    };
+    image.src = url;
+  }
+
+  function findBoxSpecies(name) {
+    const query = name.trim().toLowerCase();
+    if (!query) return null;
+    return (
+      pokemonCatalog.find((poke) => poke.name === query) ||
+      pokemonCatalog.find((poke) => poke.name.replace(/[^a-z0-9]/g, "") === query.replace(/[^a-z0-9]/g, ""))
+    );
+  }
+
+  function confirmBoxImport() {
+    const species = findBoxSpecies(els.boxSpecies?.value || "");
+    if (!species) {
+      showToast("Escribe la especie tal como sale en la lista, por ejemplo aron");
+      els.boxSpecies?.focus();
+      return;
+    }
+    const pending = boxMons.filter((mon) => !mon.skip);
+    if (!pending.length) {
+      showToast("No quedó ningún Pokémon para añadir");
+      return;
+    }
+    const perfect = Boolean(els.boxPerfect?.checked);
+    pushUndo();
+    for (const mon of pending) {
+      const ivValues = emptyIvs();
+      if (mon.perfect?.length) {
+        for (const key of mon.perfect) ivValues[key] = 31;
+      } else if (perfect) {
+        for (const stat of IV_STATS) ivValues[stat.key] = 31;
+      }
+      const pos = nextFreePosition();
+      const level = Number(mon.level);
+      saved.push({
+        uid: makeId(),
+        id: species.id,
+        name: species.name,
+        sprite: species.sprite,
+        gender: mon.gender,
+        nature: "",
+        eggGroups: [...(species.eggGroups || [])],
+        ivs: ivValues,
+        lineTags: tagsFromIvs(ivValues),
+        level: Number.isInteger(level) && level >= 1 && level <= 100 ? level : undefined,
+        x: pos.x,
+        y: pos.y,
+        isBaby: false,
+        createdAt: new Date().toISOString(),
+      });
+    }
+    persist();
+    closeBoxModal();
+    renderSaved();
+    showToast(`${pending.length} ${capitalize(species.name)} añadidos al cuaderno`);
+  }
+
   async function onPasteClipboard(e) {
+    const tag = e.target?.tagName;
+    const typing = tag === "INPUT" || tag === "TEXTAREA" || e.target?.isContentEditable;
+    const text = e.clipboardData?.getData("text/plain")?.trim();
+    if (!typing && text && text.startsWith("{") && text.includes("crianza-pokemon-page")) {
+      e.preventDefault();
+      try {
+        applyCrianzaDocument(JSON.parse(text));
+      } catch (error) {
+        console.error("No se pudo pegar la caja", error);
+        showToast(error instanceof SyntaxError ? "El texto pegado no contiene JSON válido" : error.message);
+      }
+      return;
+    }
+
     const items = e.clipboardData?.items;
     if (!items) return;
 
@@ -3223,7 +3863,14 @@
       if (!item.type.startsWith("image/")) continue;
       e.preventDefault();
       const file = item.getAsFile();
-      if (file) await addPastedImage(file);
+      if (file) {
+        if (els.boxModal && !els.boxModal.classList.contains("hidden")) {
+          e.preventDefault();
+          loadBoxFile(file);
+          return;
+        }
+        await addPastedImage(file);
+      }
       return;
     }
   }
@@ -3317,6 +3964,46 @@
       closePageMenu();
       els.pageImportFile?.click();
     });
+    els.btnPasteCaja?.addEventListener("click", () => {
+      pasteCajaFromClipboard();
+    });
+    els.btnReadBox?.addEventListener("click", openBoxModal);
+    els.boxDrop?.addEventListener("click", () => els.boxFile?.click());
+    els.boxFile?.addEventListener("change", () => {
+      const file = els.boxFile.files?.[0];
+      if (file) loadBoxFile(file);
+      els.boxFile.value = "";
+    });
+    els.boxConfirm?.addEventListener("click", confirmBoxImport);
+    els.boxModal?.querySelectorAll("[data-close-box]").forEach((el) => {
+      el.addEventListener("click", closeBoxModal);
+    });
+    els.boxPreview?.addEventListener("input", (e) => {
+      const index = Number(e.target.dataset.boxLevel);
+      if (!boxMons[index]) return;
+      const level = Number(e.target.value);
+      boxMons[index].level =
+        Number.isInteger(level) && level >= 1 && level <= 100 ? level : null;
+    });
+    els.boxPreview?.addEventListener("click", (e) => {
+      const button = e.target.closest("[data-box-skip]");
+      if (!button) return;
+      boxMons.splice(Number(button.dataset.boxSkip), 1);
+      renderBoxPreview();
+    });
+    els.boxDrop?.addEventListener("dragover", (e) => {
+      e.preventDefault();
+      els.boxDrop.classList.add("is-hot");
+    });
+    els.boxDrop?.addEventListener("dragleave", () => {
+      els.boxDrop.classList.remove("is-hot");
+    });
+    els.boxDrop?.addEventListener("drop", (e) => {
+      e.preventDefault();
+      els.boxDrop.classList.remove("is-hot");
+      const file = e.dataTransfer?.files?.[0];
+      if (file) loadBoxFile(file);
+    });
     els.btnPublishCommunity?.addEventListener("click", () => {
       closePageMenu();
       publishActivePageToCommunity();
@@ -3407,6 +4094,13 @@
     els.list?.addEventListener("pointermove", onListPanMove);
     els.list?.addEventListener("pointerup", onListPanEnd);
     els.list?.addEventListener("pointercancel", onListPanEnd);
+    els.list?.addEventListener("scroll", scheduleListPaint, { passive: true });
+    if (els.list && "ResizeObserver" in window) {
+      new ResizeObserver(() => {
+        listRangeKey = "";
+        scheduleListPaint();
+      }).observe(els.list);
+    }
 
     document.querySelectorAll(".tool-btn[data-tool]").forEach((btn) => {
       btn.addEventListener("click", () => setTool(btn.dataset.tool));
